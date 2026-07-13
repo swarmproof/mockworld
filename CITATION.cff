@@ -5,8 +5,8 @@ abstract: "A synthetic internet for agents. Part of the Agent Reliability toolki
 authors:
   - family-names: Boudoukha
     given-names: Maroua
-repository-code: "https://github.com/AgentReliability/mockworld"
-url: "https://github.com/AgentReliability/mockworld"
+repository-code: "https://github.com/swarmproof/mockworld"
+url: "https://github.com/swarmproof/mockworld"
 license: Apache-2.0
 type: software
 keywords:
