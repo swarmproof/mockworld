@@ -32,7 +32,7 @@ mockworld reset --seed 42            # deterministic state for reproducible test
 
 See [`SPEC.md`](./SPEC.md) and [`ROADMAP.md`](./ROADMAP.md).
 
-## Part of the Agent Reliability toolkit
+## Part of the Swarm Proof toolkit
 
 *Trust infrastructure for the agent economy — seven projects, one thesis.*
 
