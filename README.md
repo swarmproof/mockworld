@@ -13,9 +13,15 @@
 
 ## Why
 
-Agents need to *do things* — charge a card, send an email, place a trade, update a record — but you can't point a half-finished, non-deterministic agent at real Stripe/Gmail/an exchange during development. So teams hand-build throwaway mocks for every project, or test against nothing and find failures in production. There's no general-purpose, high-fidelity, **agent-native** set of fake services.
+Agents need to *do things* — charge a card, send an email, place a trade, update a record — but you can't point a half-finished, non-deterministic agent at real Stripe/Gmail/an exchange during development. So teams hand-build throwaway mocks for every project, or test against nothing and find failures in production.
 
-Unlike Postman/WireMock (human-driven API testing), mockworld services are exposed as MCP servers with realistic tool descriptions, stateful behavior, and injectable failure modes — the things agents actually stress.
+The 2026 crop of agent sandboxes (Veris Sandbox, AWS ToolSimulator) fills that gap by putting an **LLM in the response path** — convenient, but it means your mock never behaves the same way twice. A stochastic mock can't give you a CI run that's green for the same reason twice, a byte-identical bug repro, or an offline/air-gapped test.
+
+mockworld takes the opposite bet — **deterministic, MCP-native, open:**
+
+- **Deterministic & LLM-free.** A seed fully determines state, IDs, timing, and every injected fault. `reset --seed 42` produces the *same* decline, every time, across 50 parallel CI workers. No LLM in the hot path, ever — that's the moat, not a footnote.
+- **MCP-native & agent-realistic.** Services are real MCP servers with agent-grade tool descriptions, stateful behavior, and *business-logic* fault semantics (declines, insufficient funds, rate limits, disputes) — the things agents actually stress. (Postman/WireMock are built for human-driven HTTP testing; they don't speak MCP and can't model business state.)
+- **Open & self-hostable.** `pip install`, runs on your laptop, offline, free, Apache-2.0 — not a hosted SaaS.
 
 ## Quickstart
 
