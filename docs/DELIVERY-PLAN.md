@@ -176,6 +176,7 @@
 - [ ] `SPEC.md`/`ROADMAP.md`/`CITATION.cff`/`CONTRIBUTING.md` present; 3–5 seeded `good-first-issue`s (mostly "author mock:X").
 - [ ] Sibling links + "Part of the Swarm Proof toolkit" table.
 - [ ] Launch narrative bundled with stampede ("simulate the users **and** the world").
+- [ ] **Joint stampede demo (agreed cross-project artifact):** stampede kills an agent mid-`create_charge` (transport fault) *while* mockworld throws a `card_declined` (business fault) → assert the charge fired **exactly once** (hooks `exactly-once`). Recovery asserted across both fault layers, one nested trace. This is the strongest chaos demo either project has — co-owned with stampede for the joint launch.
 - [ ] Posts: HN "Show HN: I built a fake internet so my agents can't hurt anyone"; X thread w/ decline GIF; r/mcp; Trust Layer issue "why agents need a sandboxed world."
 - [ ] One paired Trust Layer essay drafted.
 

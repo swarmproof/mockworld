@@ -217,7 +217,7 @@ Grouped by the *kind of agent failure* each exercises — because the failure is
 
 | # | Question | Owner | Bearing on |
 |---|----------|-------|-----------|
-| Q1 | Exact trace-format span/attribute shape for **target-side** spans — awaiting stampede architect. | stampede | ARCHITECTURE §7, observability |
+| Q1 | ✅ **RESOLVED (2026-07-13).** trace-format is an **OTel GenAI semantic-conventions profile** (not bespoke). mockworld emits `gen_ai.*` + `swarmproof.*`; target-side span = `span.kind=SERVER` parented to stampede's `execute_tool` CLIENT span, joined on `gen_ai.tool.call.id`; faults as `swarmproof.fault.{type,injected,source}`; propagation via `traceparent` (HTTP headers / MCP `_meta`). See ARCHITECTURE §7.3. | stampede ✔ | ARCHITECTURE §7, observability |
 | Q2 | Registry: host as a GitHub-topic index (awesome-list style) first, or a real package index from day one? | mockworld | v0.2 scope, moat |
 | Q3 | How is community handler code executed safely — subprocess/WASM/RestrictedPython? What's the v0.1 stance (trust local only)? | mockworld | §8 security |
 | Q4 | Do we commit to **one** fidelity bar phrase — *"realistic enough to break agents correctly"* — as the governance North Star, and codify it as a per-mock fidelity checklist? | mockworld | fidelity debates |

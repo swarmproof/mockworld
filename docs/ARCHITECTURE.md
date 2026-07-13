@@ -292,30 +292,50 @@ stampede gets a new **`MockworldTarget`** adapter alongside `MCPTarget` / `HTTPT
                    └──────── one trace_id: agent spans ⊃ target spans ────┘
 ```
 
-### 7.2 Interfaces
-mockworld satisfies stampede's Target interface **and** exposes the control plane:
+### 7.2 Interfaces (✅ confirmed with stampede architect 2026-07-13)
+mockworld satisfies stampede's full `Target` protocol **and** exposes the control plane. The protocol has three methods beyond the naive `discover/invoke/reset` — `health()`, `isolation()`, `safety_descriptor()` — each of which mockworld answers cleanly:
 
 ```python
-# stampede-side (mockworld implements this to be a Target)
+# stampede-side Target protocol (stampede/docs/ARCHITECTURE.md §2.1) — mockworld implements all of it
 class Target(Protocol):
-    def discover(self) -> ToolSet: ...
-    async def invoke(self, tool: str, args: dict, agent_ctx) -> Result: ...
-    def reset(self) -> None: ...
+    async def discover(self) -> ToolSet: ...
+    async def invoke(self, call, ctx) -> ToolResult: ...
+    async def reset(self, seed: int | None = None) -> None: ...   # seed → state is a PURE FUNCTION of seed
+    async def health(self) -> HealthStatus: ...
+    def isolation(self) -> IsolationMode: ...                     # returns per_agent (see below)
+    def safety_descriptor(self) -> SafetyDescriptor: ...          # returns {sandboxed: True}
 
-# mockworld control plane (REQ-CTL-1) — driven by MockworldTarget
+# mockworld control plane (REQ-CTL-1) — the handle MockworldTarget holds
 class ControlAPI(Protocol):
-    def boot(self, world: str, seed: int, faults: str) -> BootInfo: ...   # {mcp_endpoints, session_policy}
+    def boot(self, world: str, seed: int, faults: str | dict) -> BootInfo: ...  # {mcp_endpoints, session_policy}
     def reset(self, seed: int) -> None: ...
-    def set_faults(self, profile: str | dict) -> None: ...
-    def snapshot(self) -> SnapshotRef: ...
+    def set_faults(self, config: str | dict) -> None: ...          # stampede forwards target.faults here
+    def snapshot(self) -> SnapshotRef: ...                          # v0.3 → reproducible bug-report fixtures
     def restore(self, ref: SnapshotRef) -> None: ...
     def session_reset(self, session_id: str) -> None: ...
 ```
 
-### 7.3 Trace nesting (consumes stampede's trace-format — RESEARCH Q1)
-- stampede propagates `trace_id` + parent `span_id` on each invoke (via MCP metadata / agent_ctx).
-- mockworld emits a **target-side span** per tool call as a child (REQ-OBS-1/2): tool name, params digest, result status, **`fault.applied`**, injected latency, `session_id`, mock name+version.
-- **Proposed attribute namespace (pending stampede confirmation):** `mockworld.mock`, `mockworld.tool`, `mockworld.fault`, `mockworld.session_id`, under resource `service.name = "mockworld:<mock>"`. The span *envelope* (trace_id/span_id/parent/timestamps/status) is trace-format's; only the `mockworld.*` attributes are ours.
+Three things this buys the integration (per stampede architect):
+- **`reset(seed)` — state is a pure function of the seed.** Confirmed: this is mockworld's core determinism contract (REQ-DET-5/6, ADR-4). It's the single thing mockworld gives stampede that a real target can't — it makes `stampede --dry-run` and run-diffing bit-reproducible.
+- **`isolation() → per_agent`.** mockworld's per-session state isolation (§6) reports `per_agent`, giving each stampede agent its own session/tenant. This directly answers stampede's FR-TA-06 (agents confounding each other's target state) and makes the misuse-map numbers per-agent-attributable.
+- **`safety_descriptor() → {sandboxed: True}`.** mockworld is inherently a sandbox, so stampede's Safety Gate auto-allows it with no operator ack — this is *why* the mockworld-backed demo is the frictionless one-command story (vs. a prod HTTP target that requires acknowledgement).
+
+### 7.3 Trace nesting — trace-format is an OpenTelemetry GenAI **profile** (✅ confirmed)
+**Correction to an earlier assumption:** trace-format is *not* a bespoke schema — it is a **profile of the OpenTelemetry GenAI semantic conventions** (stampede ADR-1). A mockworld span **is** an OTel span, so it drops into any OTel backend (Datadog/Honeycomb/New Relic) for free. mockworld therefore emits **standard `gen_ai.*` attributes + the shared `swarmproof.*` extension** — *not* a `mockworld.*` namespace.
+
+**mockworld's target-side span** (one per `tools/call`, REQ-OBS-1/2):
+- `span.kind = SERVER`, **parented to stampede's `execute_tool` CLIENT span** (same `trace_id`).
+- Standard attrs populated: `gen_ai.operation.name = "execute_tool"`, `gen_ai.tool.name`, `gen_ai.tool.type`, and **`gen_ai.tool.call.id`** — the **join key**: mockworld *echoes* the exact value stampede sent.
+- mockworld does **not** set `gen_ai.usage.*` (tokens are agent-side / stampede's concern).
+- `swarmproof.span.side = "target"` (stampede sets `"agent"` on its CLIENT span).
+- Resource: `service.name = "mockworld.<mock>"` (e.g. `mockworld.stripe`), `service.version`. Note: `swarmproof.run.id` is a **span** attribute, not a resource attribute (one collector may see many runs).
+- **Fault attributes (mockworld owns this sub-namespace, ✅ shape confirmed):**
+  `swarmproof.fault.type` (e.g. `"card_declined"`), `swarmproof.fault.injected` (bool), `swarmproof.fault.source` (`"mockworld"`). stampede renders these in the report's "target-native faults" section.
+
+**Trace-context propagation (mockworld implements the consumer side):**
+- **HTTP/SSE transport:** read standard **W3C `traceparent` / `tracestate` HTTP headers**; set as the parent of the handler span.
+- **stdio (MCP):** read `traceparent` from the MCP request's **`_meta.traceparent`** (stdio has no headers).
+- **Graceful degradation:** if propagation is absent, mockworld still emits standalone target spans — but since mockworld is ours, it always honors propagation so demos show the full client→server→state nesting (fuel for stampede's "why did you call X?" inspector).
 
 ### 7.4 Division of responsibility (the clean seam)
 | Concern | stampede | mockworld |
@@ -325,13 +345,20 @@ class ControlAPI(Protocol):
 | Transport/infra chaos (kill, timeout, malformed frame) | ✓ | — |
 | Business-logic faults (decline, insufficient_funds, 429) | — | ✓ |
 | Determinism seed for a run | drives via control plane | owns state/faults |
-| trace-format schema | **authors** | **consumes / produces target spans** |
+| trace-format schema | **authors** (OTel GenAI profile) | **consumes / produces target-side spans** |
 | The Agent Readiness Report | ✓ | feeds it (misuse map uses mockworld tool descriptions) |
 
-### 7.5 Open items to stampede architect (Q1–Q3, RESEARCH §10)
-1. Exact trace-format span/attribute shape + how agent-side vs. target-side spans are distinguished.
-2. Confirm `Target` interface signature (`discover/invoke/reset`) and how a Target advertises a control handle.
-3. Confirm fault-layer split (transport=stampede, business=mockworld) and that `stampede.yaml` may carry a `mockworld.faults` block that MockworldTarget forwards to `set_faults()`.
+**Config routing:** `stampede.yaml`'s `chaos:` block drives stampede's layer; a `target.faults:` block is **forwarded** by `MockworldTarget` to mockworld's control-plane `set_faults()` — stampede does not reimplement business faults. In the report the two are rendered in separately-labeled sections ("infra faults injected by stampede" vs. "business faults injected by mockworld").
+
+**The strongest combined demo:** stampede kills an agent mid-`create_charge` (its fault) *while* mockworld throws a `card_declined` (mockworld's fault) → does the side-effect still fire exactly once (assertion hooks into `exactly-once`)? Recovery is asserted across **both** layers at once.
+
+**`rate_limit` deconfliction (✅ agreed):** both layers can express rate-limiting. When a `MockworldTarget` is in use, stampede **suppresses its transport-level `rate_limit`** and defers to mockworld's semantic `rate_limited` (429 + realistic `Retry-After`), gated on target type — so a 429 is never double-counted. For non-mockworld targets, stampede's transport rate_limit stands.
+
+### 7.5 Contract status (✅ confirmed with stampede architect 2026-07-13)
+All open items are resolved; RESEARCH Q1 is closed. Confirmations exchanged:
+1. ✅ **Trace shape** — OTel GenAI profile; mockworld emits `span.kind=SERVER` handler spans parented to stampede's `execute_tool` CLIENT span, joined on `gen_ai.tool.call.id`; `swarmproof.span.side="target"`; fault attrs `swarmproof.fault.{type,injected,source}` (§7.3). mockworld reads `traceparent` from HTTP headers and MCP `_meta`.
+2. ✅ **Target interface** — full protocol (`discover/invoke/reset(seed)/health/isolation/safety_descriptor`) implemented; `isolation()→per_agent`, `safety_descriptor()→{sandboxed:True}` (§7.2).
+3. ✅ **Fault split** — transport=stampede, business=mockworld; `target.faults:` forwarded to `set_faults()`; `rate_limit` deconflicted (above).
 
 ---
 

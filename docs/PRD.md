@@ -136,8 +136,8 @@ Priority: **P0** = v0.1 must-ship · **P1** = v0.1 if time / early v0.2 · **P2*
 ### 4.7 Observability / trace (`REQ-OBS-*`)
 | ID | Requirement | Priority |
 |----|-------------|:--------:|
-| REQ-OBS-1 | Every tool call emits a **target-side span** in the shared trace-format (tool name, params digest, result status, fault applied, latency, session id). | P0 |
-| REQ-OBS-2 | Spans nest under the caller's trace via propagated `trace_id` (agent-side ⊃ target-side). | P0 |
+| REQ-OBS-1 | Every tool call emits a **target-side span** in trace-format (an **OTel GenAI profile**): `span.kind=SERVER`, `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name/type`, `gen_ai.tool.call.id` (echoed join key), `swarmproof.span.side=target`, and fault attrs `swarmproof.fault.{type,injected,source}`. Does **not** set `gen_ai.usage.*`. Resource `service.name="mockworld.<mock>"`. | P0 |
+| REQ-OBS-2 | Spans nest under the caller's `execute_tool` CLIENT span (same `trace_id`); mockworld reads W3C `traceparent`/`tracestate` from HTTP headers and from MCP `_meta.traceparent` on stdio. | P0 |
 | REQ-OBS-3 | A local **NDJSON trace sink** by default; optional OTLP export. | P1 |
 | REQ-OBS-4 | `mockworld run --record-trace <file>` captures a full session trace for replay/inspection. | P1 |
 | REQ-OBS-5 | Never emit secret-shaped values in traces (mocks are synthetic, but redact anyway for hygiene). | P1 |
@@ -163,7 +163,8 @@ Priority: **P0** = v0.1 must-ship · **P1** = v0.1 if time / early v0.2 · **P2*
 | REQ-STAMP-1 | mockworld exposes a **control-plane API** (boot/reset/seed/fault-toggle/snapshot) that stampede's `MockworldTarget` drives. | P1 (design), P3 (deep) |
 | REQ-STAMP-2 | A stampede run can declare a mockworld world inline in `stampede.yaml` and get deterministic reset per run. | P3 |
 | REQ-STAMP-3 | Trace nesting works end-to-end: stampede agent spans and mockworld target spans share one trace. | P1 |
-| REQ-STAMP-4 | mockworld faults are drivable from `stampede.yaml` (business-logic faults declared alongside stampede's transport chaos). | P3 |
+| REQ-STAMP-4 | mockworld faults are drivable from `stampede.yaml` via a `target.faults:` block forwarded to `set_faults()`; stampede suppresses its transport `rate_limit` for mockworld targets (deferred to mockworld's semantic one). | P3 |
+| REQ-STAMP-5 | mockworld implements stampede's full `Target` protocol: `reset(seed)` (pure-function replay), `isolation()→per_agent` (answers stampede FR-TA-06), `safety_descriptor()→{sandboxed:True}` (Safety Gate auto-allow), `health()`. ⊕ | P1 (design), P3 (deep) |
 
 ### 4.10 Control API (`REQ-CTL-*`) ⊕
 | ID | Requirement | Priority |
