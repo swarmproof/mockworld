@@ -1,0 +1,96 @@
+schema_version: "1"
+name: payments
+version: "0.1.0"
+description: >
+  Fake Stripe. Create, capture, and refund charges and manage customers with
+  realistic balances, idempotency, and errors. Amounts are in cents.
+fidelity: partial
+
+state:
+  customers:
+    key: id
+    fields: {id: str, name: str, email: str, balance: int, currency: str}
+  charges:
+    key: id
+    fields:
+      {id: str, customer_id: str, amount: int, currency: str, status: str,
+       captured: int, refunded: int, disputed: bool, idempotency_key: str, created: int}
+
+seed:
+  generator: python:seed.generate
+  volume: {customers: 100, charges: 200}
+
+tools:
+  - name: create_charge
+    description: >
+      Charge a customer's card. `amount` is in cents (e.g. 500 = $5.00). Returns
+      a charge object with status 'succeeded', or an error. Pass `idempotency_key`
+      to safely retry without double-charging — a replay returns the original charge.
+    params:
+      customer_id: {type: str, required: true}
+      amount: {type: int, required: true, min: 1}
+      currency: {type: str, default: usd}
+      capture: {type: bool, default: true}
+      idempotency_key: {type: str, required: false}
+    behavior: python:handlers.create_charge
+    faults:
+      - type: error_response
+        error: card_declined
+        probability: 0.05
+      - type: error_response
+        error: insufficient_funds
+        when: "params.amount > state.customers[params.customer_id].balance"
+      - type: rate_limited
+        probability: 0.02
+        retry_after_s: 2
+      - type: latency
+        distribution: {p50_ms: 80, p99_ms: 1200}
+
+  - name: capture_charge
+    description: "Capture a previously authorized (uncaptured) charge. Amounts in cents."
+    params:
+      charge_id: {type: str, required: true}
+    behavior: python:handlers.capture_charge
+
+  - name: refund_charge
+    description: >
+      Refund a charge, full or partial. `amount` defaults to the full remaining
+      captured amount. A refund can never exceed what was captured.
+    params:
+      charge_id: {type: str, required: true}
+      amount: {type: int, required: false, min: 1}
+    behavior: python:handlers.refund_charge
+
+  - name: get_charge
+    description: "Retrieve a charge by id, including its captured/refunded amounts and status."
+    params:
+      charge_id: {type: str, required: true}
+    behavior: python:handlers.get_charge
+    faults:
+      - type: partial_outage
+        down: false
+
+  - name: create_customer
+    description: "Create a customer with an initial balance (cents) and currency."
+    params:
+      name: {type: str, required: true}
+      email: {type: str, required: false}
+      balance: {type: int, default: 0, min: 0}
+      currency: {type: str, default: usd}
+    behavior: python:handlers.create_customer
+
+  - name: get_customer
+    description: "Retrieve a customer by id, including current balance."
+    params:
+      customer_id: {type: str, required: true}
+    behavior: crud:read
+    collection: customers
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}
+  hostile:
+    inherit: tool_defaults
+    overrides:
+      create_charge: {card_declined: 0.30, rate_limited: 0.15}
+      get_charge: {partial_outage: 1.0}
