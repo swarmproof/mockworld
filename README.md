@@ -59,6 +59,20 @@ mockworld add mock:weather            # checksum-verified + safety-gated
 mockworld pack ./my_mock              # print a registry entry (checksum + metadata) to publish
 ```
 
+## Swarms, snapshots, and drift (v0.3)
+
+```bash
+# Point a deterministic scripted-persona swarm at a mock and get an Agent Readiness Report:
+mockworld swarm mock:crm --agents 200 --goal hide --seed 42
+#   ⚠ misuse map: 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
+
+# Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
+mockworld snapshot save mock:payments bug123.mw.json --seed 7
+
+# Govern fidelity drift against a real provider's contract:
+mockworld verify mock:payments --against ./stripe-openapi.yaml
+```
+
 See [`SPEC.md`](./SPEC.md), [`ROADMAP.md`](./ROADMAP.md), and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ## Part of the Swarm Proof toolkit
