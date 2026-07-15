@@ -5,10 +5,10 @@
 - One-command run; reset/seed for determinism; fault injection
 - Ships alongside stampede's first finance demos
 
-## v0.2
-- Registry + `mockworld add`
-- Record-mode (capture a real API's shapes to scaffold a mock)
-- Mock composition (a "world" = several mocks with shared state)
+## v0.2 ✅ (implemented)
+- ✅ Registry + `mockworld add`/`search`/`pack` — index-as-repo, checksum + safety gate
+- ✅ Record-mode — scaffold a runnable mock from an OpenAPI spec
+- ✅ Mock composition — a "world" = several mocks with a shared identity namespace
 
 ## v0.3
 - Deep stampede integration (target a `mockworld` world directly)
