@@ -7,7 +7,7 @@
 <!-- TODO: demo GIF — an agent charging a fake card and getting a realistic decline -->
 <p align="center"><em>▶ demo GIF coming — an agent transacts against a fake Stripe and hits a realistic decline</em></p>
 
-> **Status:** 🚧 v0.1 planned (Q2). Companion to [stampede](https://github.com/swarmproof/stampede).
+> **Status:** 🟢 v0.1 engine + 5 built-in mocks implemented (deterministic core, MCP stdio+HTTP, fault injection, control plane, stampede `Target`). Companion to [stampede](https://github.com/swarmproof/stampede).
 
 ---
 
@@ -26,11 +26,17 @@ mockworld takes the opposite bet — **deterministic, MCP-native, open:**
 ## Quickstart
 
 ```bash
-pip install mockworld
-mockworld run mock:payments          # a stateful fake Stripe as an MCP server
-mockworld run mock:email --port 8931 # send/read/search
-mockworld reset --seed 42            # deterministic state for reproducible tests
+pip install mockworld                 # (from source until first PyPI cut: pip install -e ".[dev]")
+
+mockworld list                        # the 5 built-in mocks
+mockworld run mock:payments           # a stateful fake Stripe as an MCP (stdio) server
+mockworld run mock:payments --transport http --port 8931   # Streamable HTTP + control plane
+mockworld run mock:payments --seed 42 --faults hostile     # deterministic + adversarial
+mockworld inspect mock:crm            # tools, faults, and state shape without running
+mockworld demo mock:payments          # prove determinism: same seed → identical transcript
 ```
+
+Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) swarm) at it. `reset --seed 42` returns a running server to a byte-identical world, every time.
 
 ## What's inside (v0.1 built-ins)
 

@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    # The determinism (G-DET), lint (G-LINT), isolation (G-ISO), and fault
+    # (G-FLT) gates from docs/TEST-PLAN.md §8 — must be green to merge.
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install
+        run: uv pip install --system -e ".[dev]"
+      - name: G-LINT — every built-in mock lints clean (entropy smells, schema)
+        run: |
+          for m in payments crm exchange email files; do mockworld validate mock:$m; done
+      - name: G-DET / G-ISO / G-FLT / G-E2E — full suite
+        run: python -m pytest -q
+      - name: G-DET (cross-run) — determinism demo reproduces
+        run: mockworld demo mock:payments
