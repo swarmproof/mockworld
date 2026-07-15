@@ -137,8 +137,13 @@ class MockServer:
         async with stdio_server() as (read, write):
             await self.server.run(read, write, self.init_options())
 
-    def asgi_app(self, json_response: bool = False):
-        """A Starlette app serving this mock over Streamable HTTP at ``/mcp``."""
+    def asgi_app(self, json_response: bool = False, control: bool = True):
+        """A Starlette app serving this mock over Streamable HTTP at ``/mcp``.
+
+        With ``control=True`` the out-of-band control plane is mounted at
+        ``/control/*`` on the same server so ``mockworld reset`` can reach it,
+        while remaining a distinct surface from the agent-facing ``/mcp`` (REQ-CTL-2).
+        """
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
         from starlette.applications import Starlette
         from starlette.routing import Mount
@@ -153,7 +158,12 @@ class MockServer:
             async with manager.run():
                 yield
 
-        return Starlette(routes=[Mount("/mcp", app=handle)], lifespan=lifespan)
+        routes = [Mount("/mcp", app=handle)]
+        if control:
+            from .control import control_routes
+
+            routes.extend(control_routes(self.engine))
+        return Starlette(routes=routes, lifespan=lifespan)
 
     def run_http(self, host: str = "127.0.0.1", port: int = 8931) -> None:
         import uvicorn

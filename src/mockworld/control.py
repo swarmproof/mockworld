@@ -122,14 +122,19 @@ class MockworldTarget:
         return {"sandboxed": True, "moves_real_money": False, "external_side_effects": False}
 
 
-def control_asgi_app(engine: Engine):
-    """A small Starlette app exposing the control plane over HTTP (REQ-CTL-1)."""
-    from starlette.applications import Starlette
+def control_routes(engine: Engine) -> list:
+    """Starlette routes for the control plane, mountable alongside the MCP app."""
     from starlette.requests import Request
     from starlette.responses import JSONResponse
     from starlette.routing import Route
 
     api = ControlAPI(engine)
+
+    async def _json(request: Request) -> dict:
+        try:
+            return await request.json()
+        except Exception:
+            return {}
 
     async def health(_: Request) -> JSONResponse:
         return JSONResponse(api.health())
@@ -149,17 +154,16 @@ def control_asgi_app(engine: Engine):
         api.session_reset(body["session_id"])
         return JSONResponse({"status": "session_reset"})
 
-    async def _json(request: Request) -> dict:
-        try:
-            return await request.json()
-        except Exception:
-            return {}
+    return [
+        Route("/control/health", health, methods=["GET"]),
+        Route("/control/reset", reset, methods=["POST"]),
+        Route("/control/faults", set_faults, methods=["POST"]),
+        Route("/control/session_reset", session_reset, methods=["POST"]),
+    ]
 
-    return Starlette(
-        routes=[
-            Route("/control/health", health, methods=["GET"]),
-            Route("/control/reset", reset, methods=["POST"]),
-            Route("/control/faults", set_faults, methods=["POST"]),
-            Route("/control/session_reset", session_reset, methods=["POST"]),
-        ]
-    )
+
+def control_asgi_app(engine: Engine):
+    """A standalone Starlette app exposing the control plane over HTTP (REQ-CTL-1)."""
+    from starlette.applications import Starlette
+
+    return Starlette(routes=control_routes(engine))
