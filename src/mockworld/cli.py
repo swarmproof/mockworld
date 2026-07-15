@@ -135,11 +135,17 @@ def pack(mock_dir) -> None:
 @click.option("--store", type=click.Choice(["memory", "sqlite"]), default="memory")
 @click.option("--record-trace", type=click.Path(), default=None, help="Write an NDJSON trace to this file.")
 def run(source, transport, host, port, seed, faults, store, record_trace) -> None:
-    trace_sink = open(record_trace, "w") if record_trace else None
-    engine = Engine.from_source(
-        source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}", trace_sink=trace_sink
-    )
     from .server import MockServer
+
+    if source.startswith("world:"):
+        from .world import WorldEngine, load_world
+
+        engine = WorldEngine(load_world(source), seed=seed, faults=faults, store=store, run_id=f"cli-{seed}")
+    else:
+        trace_sink = open(record_trace, "w") if record_trace else None
+        engine = Engine.from_source(
+            source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}", trace_sink=trace_sink
+        )
 
     server = MockServer(engine)
     d = engine.definition

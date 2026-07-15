@@ -15,16 +15,26 @@ def generate(ctx, definition) -> dict:
     customers: dict[str, dict] = {}
     charges: dict[str, dict] = {}
 
-    for _ in range(volume.get("customers", 0)):
-        cid = ctx.ids.next("cus")
-        name = ctx.fake.name()
-        customers[cid] = {
-            "id": cid,
-            "name": name,
-            "email": ctx.fake.email(name),
-            "balance": ctx.fake.amount_cents(50_00, 5000_00),
-            "currency": "usd",
-        }
+    # In a composed world, take customers from the shared identity pool so the
+    # same ids/names appear in crm and email (REQ-WORLD-1).
+    shared = (ctx.shared or {}).get("customers")
+    if shared:
+        for c in shared:
+            customers[c["id"]] = {
+                "id": c["id"], "name": c["name"], "email": c["email"],
+                "balance": ctx.fake.amount_cents(50_00, 5000_00), "currency": "usd",
+            }
+    else:
+        for _ in range(volume.get("customers", 0)):
+            cid = ctx.ids.next("cus")
+            name = ctx.fake.name()
+            customers[cid] = {
+                "id": cid,
+                "name": name,
+                "email": ctx.fake.email(name),
+                "balance": ctx.fake.amount_cents(50_00, 5000_00),
+                "currency": "usd",
+            }
 
     customer_ids = list(customers)
     base_ts = 1_700_000_000

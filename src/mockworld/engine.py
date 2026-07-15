@@ -47,12 +47,14 @@ class Engine:
         run_id: str = "local",
         trace_sink: TextIO | None = None,
         apply_latency: bool = False,
+        shared: dict | None = None,
     ) -> None:
         self.mock = mock
         self.definition = mock.definition
         self.seed = seed
         self.run_id = run_id
         self.apply_latency = apply_latency
+        self.shared = shared
 
         self.dctx = DeterministicContext(seed)
         self.store = make_store(store, self.definition.collection_names())
@@ -71,7 +73,7 @@ class Engine:
         return cls(load_mock(source), **kwargs)
 
     def _seed_base(self) -> None:
-        self.store.load_base(self.mock.generate_base(self.dctx))
+        self.store.load_base(self.mock.generate_base(self.dctx, self.shared))
 
     def _resolve_profile(self, faults: str | dict) -> FaultProfile:
         if isinstance(faults, dict):

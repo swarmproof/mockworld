@@ -12,6 +12,16 @@ _TYPES = ["customer", "lead", "contact", "account", "opportunity"]
 def generate(ctx, definition) -> dict:
     n = definition.seed.volume.get("records", 0)
     records: dict[str, dict] = {}
+
+    # In a composed world, mirror the shared customers as CRM records keyed by the
+    # SAME id, so get_record(customer_id) resolves across services (REQ-WORLD-1).
+    for c in (ctx.shared or {}).get("customers", []):
+        records[c["id"]] = {
+            "id": c["id"], "type": "customer", "name": c["name"],
+            "data": {"email": c["email"]}, "archived": False, "locked": False,
+            "version": 1, "updated": 1_700_000_000,
+        }
+
     for i in range(n):
         rid = ctx.ids.next("rec")
         rtype = ctx.rng.choice(_TYPES)

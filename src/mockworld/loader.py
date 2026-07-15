@@ -37,11 +37,18 @@ def installed_dir() -> Path:
 
 @dataclass
 class SeedCtx:
-    """Context passed to a mock's ``seed.generate(ctx)`` for base-dataset creation."""
+    """Context passed to a mock's ``seed.generate(ctx)`` for base-dataset creation.
+
+    ``shared`` carries a world-level identity pool (REQ-WORLD-1) when a mock runs
+    inside a composed world — e.g. ``shared["customers"]`` is the common customer
+    list so payments, crm, and email all reference the same ids. ``None`` for a
+    standalone mock.
+    """
 
     rng: Any
     ids: IdGen
     fake: DataGen
+    shared: dict[str, Any] | None = None
 
 
 @dataclass
@@ -51,13 +58,16 @@ class LoadedMock:
     seed_module: ModuleType | None
     path: Path
 
-    def generate_base(self, dctx: DeterministicContext) -> Snapshot:
+    def generate_base(
+        self, dctx: DeterministicContext, shared: dict[str, Any] | None = None
+    ) -> Snapshot:
         """Produce the seeded base dataset (REQ-STATE-2). Pure function of the seed."""
         seed_def = self.definition.seed
         seed_ctx = SeedCtx(
             rng=dctx.seed_rng(),
             ids=dctx.ids_for("__seed__", 0),
             fake=DataGen(dctx.seed_rng()),
+            shared=shared,
         )
         if seed_def.generator.startswith("python:") and self.seed_module is not None:
             fn_name = seed_def.generator.split(".", 1)[-1]
