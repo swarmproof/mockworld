@@ -86,8 +86,10 @@ class LoadedMock:
             for _ in range(n):
                 entity: dict[str, Any] = {}
                 for fname, ftype in coll.fields.items():
+                    if fname == coll.key:
+                        continue  # the key is a minted unique id, never a random field value
                     entity[fname] = self._gen_field(ctx, fname, ftype)
-                key = str(entity.get(coll.key) or ctx.ids.next(coll_name[:3]))
+                key = ctx.ids.next(coll_name[:3])
                 entity[coll.key] = key
                 entities[key] = entity
             snapshot[coll_name] = entities

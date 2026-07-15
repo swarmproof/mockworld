@@ -125,6 +125,21 @@ def pack(mock_dir) -> None:
     click.echo(json.dumps(entry, indent=2))
 
 
+@main.command(help="Scaffold a new mock from an OpenAPI spec (record-mode).")
+@click.option("--openapi", "openapi", type=click.Path(exists=True), required=True, help="OpenAPI JSON/YAML spec.")
+@click.option("--name", default=None, help="Mock name (default: from spec title).")
+@click.option("--out", "out_dir", type=click.Path(), default=None, help="Output directory.")
+def record(openapi, name, out_dir) -> None:
+    from .record import from_openapi
+
+    out = from_openapi(openapi, name=name, out_dir=out_dir)
+    findings = validate_mock(str(out))
+    errors = [f for f in findings if f.level == "error"]
+    click.echo(click.style(f"✓ scaffolded → {out}", fg="green"))
+    click.echo(f"  {'lints clean' if not errors else f'{len(errors)} lint error(s) — see mockworld validate'}")
+    click.echo("  next: fill in handler stubs + invariants, declare faults, then `mockworld run`.")
+
+
 @main.command(help="Run a mock as an MCP server.")
 @click.argument("source")
 @click.option("--transport", type=click.Choice(["stdio", "http"]), default="stdio")
