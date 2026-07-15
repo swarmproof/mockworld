@@ -1,0 +1,92 @@
+schema_version: "1"
+name: files
+version: "0.1.0"
+description: >
+  Fake S3-shaped object storage. Put, get, list, and delete objects addressed by
+  a string key. Overwriting a key bumps its version and mints a new etag, so
+  read-after-write and versioning are observable. Sizes are in bytes.
+fidelity: partial
+
+state:
+  objects:
+    key: key
+    fields:
+      {key: str, bucket: str, size: int, content_type: str, version: int,
+       etag: str, created: int}
+
+seed:
+  generator: python:seed.generate
+  volume: {objects: 50}
+
+errors:
+  no_such_key:
+    http_status: 404
+    body:
+      code: NoSuchKey
+      message: "The specified key does not exist."
+
+tools:
+  - name: put_object
+    description: >
+      Store an object at `key`, creating it or OVERWRITING the existing one.
+      The first write is version 1; each overwrite increments `version` and mints
+      a fresh `etag`. `size` is in bytes. Returns the stored object's metadata,
+      immediately readable via get_object/list_objects (read-after-write).
+    params:
+      key: {type: str, required: true}
+      content_type: {type: str, default: application/octet-stream}
+      size: {type: int, default: 0, min: 0}
+      bucket: {type: str, default: default}
+    behavior: python:handlers.put_object
+    faults:
+      - type: error_response
+        error: access_denied
+        when: "params.key.startswith('protected/')"
+      - type: error_response
+        error: access_denied
+        probability: 0.02
+
+  - name: get_object
+    description: >
+      Retrieve an object's metadata by `key`, including its current `version` and
+      `etag`. Returns `no_such_key` if the key does not exist. Large objects can
+      be slow to fetch: latency is recorded deterministically in meta.latency_ms.
+    params:
+      key: {type: str, required: true}
+    behavior: python:handlers.get_object
+    faults:
+      - type: error_response
+        error: access_denied
+        when: "params.key.startswith('protected/')"
+      - type: error_response
+        error: access_denied
+        probability: 0.03
+      - type: latency
+        distribution: {p50_ms: 50, p99_ms: 3000}
+
+  - name: list_objects
+    description: >
+      List objects whose key starts with `prefix` (all objects if omitted),
+      optionally scoped to `bucket`. Results are returned in stable, key-sorted
+      order under `data`, with a `count`.
+    params:
+      prefix: {type: str, required: false}
+      bucket: {type: str, required: false}
+    behavior: python:handlers.list_objects
+
+  - name: delete_object
+    description: >
+      Delete the object at `key`. Returns the deleted key, or `no_such_key` if no
+      object exists at that key.
+    params:
+      key: {type: str, required: true}
+    behavior: python:handlers.delete_object
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}
+  hostile:
+    inherit: tool_defaults
+    overrides:
+      get_object: {access_denied: 0.50}
+      put_object: {access_denied: 0.40}
