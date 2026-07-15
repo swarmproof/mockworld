@@ -176,6 +176,44 @@ def run(source, transport, host, port, seed, faults, store, record_trace) -> Non
         server.run_http(host=host, port=port)
 
 
+@main.command(help="Run a deterministic scripted-persona swarm and print an Agent Readiness Report.")
+@click.argument("source")
+@click.option("--agents", type=int, default=200)
+@click.option("--goal", type=click.Choice(["hide", "transact"]), default="hide")
+@click.option("--seed", type=int, default=42)
+@click.option("--faults", default="realistic")
+@click.option("--json", "as_json", is_flag=True, help="Emit the report as JSON.")
+def swarm(source, agents, goal, seed, faults, as_json) -> None:
+    from .swarm import format_report, run_swarm
+
+    if source.startswith("world:"):
+        from .world import WorldEngine, load_world
+
+        engine = WorldEngine(load_world(source), seed=seed, faults=faults)
+    else:
+        engine = Engine.from_source(source, seed=seed, faults=faults, run_id=f"swarm-{seed}")
+
+    report = run_swarm(engine, agents=agents, goal=goal, seed=seed)
+    click.echo(json.dumps(report.as_dict(), indent=2) if as_json else format_report(report))
+
+
+@main.command(help="Verify a mock's output shapes against an OpenAPI contract (fidelity drift).")
+@click.argument("source")
+@click.option("--against", "spec", type=click.Path(exists=True), required=True, help="OpenAPI spec.")
+@click.option("--seed", type=int, default=0)
+def verify(source, spec, seed) -> None:
+    from .verify import verify_against_openapi
+
+    findings = verify_against_openapi(source, spec, seed=seed)
+    for f in findings:
+        color = {"drift": "yellow", "error": "red", "ok": "green"}.get(f.level, "white")
+        click.echo(f"  {click.style(f.level.upper(), fg=color)}  {f.message}")
+    if not findings:
+        click.echo(click.style("✓ no drift detected", fg="green"))
+    if any(f.level == "error" for f in findings):
+        raise SystemExit(1)
+
+
 @main.command(help="Reset a running HTTP mock's state deterministically to a seed.")
 @click.option("--seed", type=int, required=True)
 @click.option("--host", default="127.0.0.1")
@@ -186,6 +224,34 @@ def reset(seed, host, port) -> None:
     url = f"http://{host}:{port}/control/reset"
     resp = httpx.post(url, json={"seed": seed}, timeout=5)
     click.echo(resp.json())
+
+
+@main.group(help="Save/load a portable scenario snapshot (seed + versions + state).")
+def snapshot() -> None:
+    pass
+
+
+@snapshot.command("save", help="Dirty a world with a script file, then save its state.")
+@click.argument("source")
+@click.argument("out_path")
+@click.option("--seed", type=int, default=0)
+@click.option("--faults", default="none")
+def snapshot_save(source, out_path, seed, faults) -> None:
+    import time
+
+    from . import snapshot as snap
+
+    engine = Engine.from_source(source, seed=seed, faults=faults)
+    snap.save(engine, out_path, created=int(time.time()))
+    click.echo(click.style(f"✓ saved snapshot → {out_path}", fg="green"))
+
+
+@snapshot.command("info", help="Show a snapshot's metadata.")
+@click.argument("path")
+def snapshot_info(path) -> None:
+    from . import snapshot as snap
+
+    click.echo(json.dumps(snap.read_meta(path), indent=2))
 
 
 @main.command(help="Prove determinism: run a scripted scenario twice, show identical results.")
