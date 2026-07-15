@@ -9,6 +9,7 @@ path loads a custom mock.
 from __future__ import annotations
 
 import importlib.util
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -23,6 +24,15 @@ from .schema import MockDef
 from .state import Snapshot
 
 _BUILTIN_DIR = Path(__file__).parent / "mocks"
+
+
+def mockworld_home() -> Path:
+    """Where registry-installed mocks live (override with ``MOCKWORLD_HOME``)."""
+    return Path(os.environ.get("MOCKWORLD_HOME", str(Path.home() / ".mockworld")))
+
+
+def installed_dir() -> Path:
+    return mockworld_home() / "mocks"
 
 
 @dataclass
@@ -100,9 +110,19 @@ def _import_module(path: Path, mod_name: str) -> ModuleType | None:
 
 
 def resolve_source(source: str) -> Path:
-    """Resolve ``mock:<name>`` to a built-in dir, or treat ``source`` as a path."""
+    """Resolve ``mock:<name>`` to a built-in or registry-installed dir; else a path.
+
+    Built-ins take precedence over installed mocks of the same name.
+    """
     if source.startswith("mock:"):
-        return _BUILTIN_DIR / source.split(":", 1)[1]
+        name = source.split(":", 1)[1]
+        builtin = _BUILTIN_DIR / name
+        if builtin.is_dir():
+            return builtin
+        installed = installed_dir() / name
+        if installed.is_dir():
+            return installed
+        return builtin  # nonexistent → callers raise a helpful FileNotFoundError
     return Path(source)
 
 
@@ -128,9 +148,17 @@ def load_mock(source: str) -> LoadedMock:
     return LoadedMock(definition=definition, handlers=handlers, seed_module=seed_module, path=path)
 
 
-def list_builtin_mocks() -> list[str]:
-    if not _BUILTIN_DIR.is_dir():
+def _list_mocks_in(directory: Path) -> list[str]:
+    if not directory.is_dir():
         return []
-    return sorted(
-        p.name for p in _BUILTIN_DIR.iterdir() if p.is_dir() and (p / "mock.yaml").exists()
-    )
+    return sorted(p.name for p in directory.iterdir() if p.is_dir() and (p / "mock.yaml").exists())
+
+
+def list_builtin_mocks() -> list[str]:
+    return _list_mocks_in(_BUILTIN_DIR)
+
+
+def list_installed_mocks() -> list[str]:
+    """Registry-installed mocks not shadowed by a built-in of the same name."""
+    builtins = set(list_builtin_mocks())
+    return [n for n in _list_mocks_in(installed_dir()) if n not in builtins]

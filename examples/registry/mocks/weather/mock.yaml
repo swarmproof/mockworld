@@ -1,0 +1,44 @@
+schema_version: "1"
+name: weather
+version: "0.1.0"
+description: >
+  Example community mock — a fake weather API. Look up stations and a
+  deterministic short-term forecast. Demonstrates authoring + registry install.
+fidelity: sketch
+
+state:
+  stations:
+    key: id
+    fields: {id: str, city: str, temp_c: int, condition: str}
+
+seed:
+  generator: python:seed.generate
+  volume: {stations: 25}
+
+tools:
+  - name: get_station
+    description: "Retrieve a weather station by id, including its current temperature."
+    params:
+      id: {type: str, required: true}
+    behavior: crud:read
+    collection: stations
+
+  - name: list_stations
+    description: "List all known weather stations."
+    params: {}
+    behavior: crud:list
+    collection: stations
+
+  - name: get_forecast
+    description: "A deterministic 3-day forecast (°C) for a station."
+    params:
+      id: {type: str, required: true}
+    behavior: python:handlers.get_forecast
+    faults:
+      - type: rate_limited
+        probability: 0.05
+        retry_after_s: 1
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}

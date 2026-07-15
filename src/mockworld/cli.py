@@ -18,7 +18,7 @@ import click
 
 from . import __version__
 from .engine import Engine
-from .loader import list_builtin_mocks, load_mock
+from .loader import list_builtin_mocks, list_installed_mocks, load_mock
 from .validate import validate_mock
 
 
@@ -28,16 +28,23 @@ def main() -> None:  # pragma: no cover - entry point
     pass
 
 
-@main.command("list", help="List installed (built-in) mocks.")
+@main.command("list", help="List built-in and registry-installed mocks.")
 def list_cmd() -> None:
-    names = list_builtin_mocks()
-    if not names:
+    builtin = list_builtin_mocks()
+    installed = list_installed_mocks()
+    if not builtin and not installed:
         click.echo("no mocks installed")
         return
-    for name in names:
-        loaded = load_mock(f"mock:{name}")
-        d = loaded.definition
-        click.echo(f"mock:{name:<10} v{d.version}  [{d.fidelity}]  {len(d.tools)} tools  — {d.description.strip().splitlines()[0]}")
+
+    def _line(name: str, tag: str) -> None:
+        d = load_mock(f"mock:{name}").definition
+        summary = d.description.strip().splitlines()[0]
+        click.echo(f"mock:{name:<12} v{d.version}  [{d.fidelity}]  {len(d.tools)} tools  {tag} — {summary}")
+
+    for name in builtin:
+        _line(name, "")
+    for name in installed:
+        _line(name, click.style("(community)", fg="magenta"))
 
 
 @main.command(help="Print a mock's tools, faults, and state shape without running it.")
@@ -72,6 +79,50 @@ def validate(source: str) -> None:
         click.echo(click.style("✓ clean", fg="green"))
     if errors:
         sys.exit(1)
+
+
+@main.command(help="Install a mock from the registry.")
+@click.argument("spec")
+@click.option("--force", is_flag=True, help="Reinstall if already present.")
+@click.option("--trust", is_flag=True, help="Skip the untrusted-code safety gate.")
+@click.option("--registry", default=None, help="Registry index URL/path (or $MOCKWORLD_REGISTRY).")
+def add(spec, force, trust, registry) -> None:
+    from .registry import DEFAULT_REGISTRY, RegistryClient, RegistryError
+
+    name = spec.split(":", 1)[1] if spec.startswith("mock:") else spec
+    client = RegistryClient(registry or DEFAULT_REGISTRY)
+    try:
+        dest = client.add(name, force=force, trust=trust)
+    except RegistryError as exc:
+        raise SystemExit(click.style(f"add failed: {exc}", fg="red"))
+    click.echo(click.style(f"✓ installed mock:{name.split('@')[0]} → {dest}", fg="green"))
+
+
+@main.command(help="Search the registry for mocks.")
+@click.argument("term")
+@click.option("--registry", default=None, help="Registry index URL/path (or $MOCKWORLD_REGISTRY).")
+def search(term, registry) -> None:
+    from .registry import DEFAULT_REGISTRY, RegistryClient
+
+    for e in RegistryClient(registry or DEFAULT_REGISTRY).search(term):
+        click.echo(f"mock:{e.name:<12} v{e.version}  [{e.fidelity}]  {e.tools} tools — {e.description}")
+
+
+@main.command(help="Compute a mock's checksum + a registry.json entry stub (for publishing).")
+@click.argument("mock_dir", type=click.Path(exists=True))
+def pack(mock_dir) -> None:
+    from pathlib import Path
+
+    from .registry import dir_checksum
+
+    loaded = load_mock(mock_dir)
+    d = loaded.definition
+    entry = {
+        "name": d.name, "version": d.version, "source": "<url-or-path-to-this-mock>",
+        "sha256": dir_checksum(Path(mock_dir)), "description": d.description.strip().splitlines()[0],
+        "fidelity": d.fidelity, "tools": len(d.tools),
+    }
+    click.echo(json.dumps(entry, indent=2))
 
 
 @main.command(help="Run a mock as an MCP server.")
