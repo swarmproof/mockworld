@@ -1,0 +1,83 @@
+schema_version: "1"
+name: email
+version: "0.1.0"
+description: >
+  Fake Gmail/SMTP. Send, list, read, and search email with realistic threading,
+  permanent bounces, spam rejection, and rate limits. Outbound sends land in the
+  'sent' folder; a permanently-bounced recipient always hard-bounces.
+fidelity: partial
+
+state:
+  messages:
+    key: id
+    fields:
+      {id: str, thread_id: str, to: str, from: str, subject: str, body: str,
+       folder: str, status: str, created: int}
+  bounced_addresses:
+    key: address
+    fields: {address: str, reason: str}
+
+seed:
+  generator: python:seed.generate
+  volume: {messages: 24}
+
+tools:
+  - name: send_email
+    description: >
+      Send an email. `to` is the recipient address, `subject` and `body` are the
+      content. Pass `thread_id` to attach the message to an existing conversation;
+      omit it to start a new thread (a fresh thread id is returned). `from` defaults
+      to the mailbox owner. Sending to a permanently-bounced address fails with
+      `hard_bounce` — do not retry it. On `rate_limited` (429), back off and retry
+      after `retry_after` seconds; a naive retry storm is a bug this mock surfaces.
+    params:
+      to: {type: str, required: true}
+      subject: {type: str, required: true}
+      body: {type: str, required: true}
+      thread_id: {type: str, required: false}
+      from: {type: str, required: false}
+    behavior: python:handlers.send_email
+    faults:
+      - type: error_response
+        error: hard_bounce
+        when: "state.bounced_addresses[params.to]"
+        probability: 0.05
+      - type: rate_limited
+        probability: 0.1
+        retry_after_s: 3
+      - type: error_response
+        error: spam_rejected
+        probability: 0.05
+      - type: latency
+        distribution: {p50_ms: 60, p99_ms: 900}
+
+  - name: list_messages
+    description: >
+      List messages, newest-key-first ordering is stable across runs. Pass `folder`
+      ('sent' or 'inbox') to filter; omit it to return everything. Returns
+      {data: [...], count: N}.
+    params:
+      folder: {type: str, required: false}
+    behavior: python:handlers.list_messages
+
+  - name: get_message
+    description: "Retrieve a single message by id, including its thread_id, folder, and status."
+    params:
+      message_id: {type: str, required: true}
+    behavior: python:handlers.get_message
+
+  - name: search
+    description: >
+      Case-insensitive substring search over subject, body, and recipient (`to`).
+      Returns {data: [...], count: N} of matching messages in stable order.
+    params:
+      query: {type: str, required: true}
+    behavior: python:handlers.search
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}
+  hostile:
+    inherit: tool_defaults
+    overrides:
+      send_email: {rate_limited: 0.4, hard_bounce: 0.2, spam_rejected: 0.2}

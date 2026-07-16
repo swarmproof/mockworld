@@ -1,0 +1,94 @@
+schema_version: "1"
+name: exchange
+version: "0.1.0"
+description: >
+  Fake CEX. A crypto/stock exchange with markets, per-asset account balances, and
+  an order book you can trade against. Place market or limit orders; fills apply
+  deterministic slippage and enforce balance conservation. Prices and quote
+  balances are in minor units (cents); base-asset sizes are whole units.
+fidelity: partial
+
+state:
+  markets:
+    key: symbol
+    fields: {symbol: str, base: str, quote: str, price: int, halted: bool}
+  accounts:
+    key: id
+    fields: {id: str, name: str}
+  balances:
+    key: id
+    fields: {id: str, account_id: str, asset: str, amount: int}
+  orders:
+    key: id
+    fields:
+      {id: str, account_id: str, symbol: str, side: str, size: int,
+       limit_price: int, status: str, filled: int, fill_price: int, created: int}
+
+seed:
+  generator: python:seed.generate
+  volume: {accounts: 20, orders: 40}
+
+tools:
+  - name: get_ticker
+    description: >
+      Get the current market for a trading pair (e.g. `BTC-USD`): its base/quote
+      assets, last price in minor units (cents), and whether trading is halted.
+    params:
+      symbol: {type: str, required: true}
+    behavior: python:handlers.get_ticker
+
+  - name: get_balances
+    description: >
+      List every asset balance held by an account. Quote balances (e.g. USD) are
+      in minor units (cents); base-asset balances (e.g. BTC) are whole units.
+    params:
+      account_id: {type: str, required: true}
+    behavior: python:handlers.get_balances
+
+  - name: place_order
+    description: >
+      Place a buy or sell order for `size` whole units of a market's base asset.
+      Omit `limit_price` for a market order (fills immediately at the market price
+      plus deterministic slippage); pass `limit_price` (minor units) for a limit
+      order that only fills when marketable and otherwise rests as 'open'. A buy
+      debits the quote asset and credits the base asset; a sell does the reverse.
+      Returns the order with status 'filled', 'partially_filled', or 'open', or an
+      error (`insufficient_funds`, `slippage_exceeded`, `market_halted`).
+    params:
+      account_id: {type: str, required: true}
+      symbol: {type: str, required: true}
+      side: {type: str, required: true, enum: [buy, sell]}
+      size: {type: int, required: true, min: 1}
+      limit_price: {type: int, required: false, min: 1}
+    behavior: python:handlers.place_order
+    faults:
+      - type: error_response
+        error: slippage_exceeded
+        probability: 0.05
+      - type: error_response
+        error: market_halted
+        when: "state.markets[params.symbol].halted"
+      - type: latency
+        distribution: {p50_ms: 40, p99_ms: 900}
+
+  - name: cancel_order
+    description: >
+      Cancel a resting order. Only 'open' or 'partially_filled' orders can be
+      cancelled; a filled, rejected, or already-cancelled order returns an error.
+    params:
+      order_id: {type: str, required: true}
+    behavior: python:handlers.cancel_order
+
+  - name: get_order
+    description: "Retrieve an order by id, including its status, filled size, and fill price."
+    params:
+      order_id: {type: str, required: true}
+    behavior: python:handlers.get_order
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}
+  hostile:
+    inherit: tool_defaults
+    overrides:
+      place_order: {slippage_exceeded: 0.6, rate_limited: 0.2}

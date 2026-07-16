@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mockworld"
+version = "0.1.0"
+description = "A synthetic internet for agents — deterministic, LLM-free fake services (Stripe, Gmail, exchange, CRM, S3) as MCP servers."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Swarm Proof" }]
+keywords = ["mcp", "agents", "testing", "mock", "deterministic", "sandbox"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Testing",
+]
+
+# Core deps kept lean per NFR-DEP-1. `mcp` provides stdio + Streamable HTTP transport
+# and, transitively, the ASGI/uvicorn machinery the HTTP transport and control plane use.
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "click>=8.1",
+    "mcp>=1.2",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+mockworld = "mockworld.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/swarmproof/mockworld"
+Repository = "https://github.com/swarmproof/mockworld"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mockworld"]
+
+# Built-in mock definitions are data (YAML/markdown) shipped inside the wheel.
+[tool.hatch.build.targets.wheel.force-include]
+"src/mockworld/mocks" = "mockworld/mocks"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
