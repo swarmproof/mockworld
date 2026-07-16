@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `loader.py` — load a mock dir (+ registry-installed resolution). `engine.py` — the transport-free call path (start here to trace a request).
 - `trace.py` — OTel-GenAI-profile spans. `server.py` — MCP stdio+HTTP adapter. `control.py` — control plane + stampede `Target`. `cli.py` — commands. `validate.py` — the entropy linter.
 - `registry.py` (v0.2) — `add`/`search`, checksum + safety gate. `world.py` (v0.2) — compose mocks with a shared identity pool. `record.py` (v0.2) — OpenAPI → scaffold.
+- `snapshot.py` (v0.3) — portable `.mw.json` artifacts + migration. `swarm.py` (v0.3) — persona swarm → Agent Readiness Report (misuse map). `verify.py` (v0.3) — contract-drift vs OpenAPI.
 - `mocks/<name>/` — the five built-ins (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
 
 CLI: `run` (stdio/http, also `run world:<file>`), `list`, `inspect`, `validate`, `reset`, `demo`, `add`, `search`, `pack`, `record`. The engine is deliberately MCP-free; server/control/CLI are thin adapters (keeps determinism/isolation tests pure).

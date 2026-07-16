@@ -167,6 +167,10 @@ class StateStore(ABC):
         """Drop one session's overlay, leaving siblings untouched (REQ-ISO-4)."""
         self._overlays[session_id] = {}
 
+    def install_overlay(self, session_id: str, state: Snapshot) -> None:
+        """Replace a session's overlay wholesale (used to restore a snapshot)."""
+        self._overlays[session_id] = {c: dict(v) for c, v in state.items()}
+
     def close_session(self, session_id: str) -> None:
         self._overlays.pop(session_id, None)
 
