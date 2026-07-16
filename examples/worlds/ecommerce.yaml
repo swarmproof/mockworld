@@ -1,0 +1,15 @@
+# A composed world: payments + crm + email sharing one customer namespace.
+# Run: mockworld run world:examples/worlds/ecommerce.yaml --seed 42
+#
+# The same 50 customers (ids/names/emails) are seeded into payments.customers and
+# crm.records, so an agent can charge a customer, update their CRM record, and
+# email them — consistently, deterministically (REQ-WORLD-1/2).
+schema_version: "1"
+name: ecommerce
+seed: 42
+mocks:
+  - payments
+  - crm
+  - email
+identity:
+  customers: 50
