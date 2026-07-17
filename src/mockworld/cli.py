@@ -125,14 +125,18 @@ def pack(mock_dir) -> None:
     click.echo(json.dumps(entry, indent=2))
 
 
-@main.command(help="Scaffold a new mock from an OpenAPI spec (record-mode).")
-@click.option("--openapi", "openapi", type=click.Path(exists=True), required=True, help="OpenAPI JSON/YAML spec.")
+@main.command(help="Scaffold a new mock from an OpenAPI spec or a HAR capture (record-mode).")
+@click.option("--openapi", "openapi", type=click.Path(exists=True), default=None, help="OpenAPI JSON/YAML spec.")
+@click.option("--har", "har", type=click.Path(exists=True), default=None, help="HAR traffic capture.")
 @click.option("--name", default=None, help="Mock name (default: from spec title).")
 @click.option("--out", "out_dir", type=click.Path(), default=None, help="Output directory.")
-def record(openapi, name, out_dir) -> None:
-    from .record import from_openapi
+def record(openapi, har, name, out_dir) -> None:
+    from .record import from_har, from_openapi
 
-    out = from_openapi(openapi, name=name, out_dir=out_dir)
+    if bool(openapi) == bool(har):
+        raise SystemExit(click.style("provide exactly one of --openapi or --har", fg="red"))
+    out = (from_openapi(openapi, name=name, out_dir=out_dir) if openapi
+           else from_har(har, name=name, out_dir=out_dir))
     findings = validate_mock(str(out))
     errors = [f for f in findings if f.level == "error"]
     click.echo(click.style(f"✓ scaffolded → {out}", fg="green"))
