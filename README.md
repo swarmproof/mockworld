@@ -49,8 +49,9 @@ Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) sw
 mockworld run world:examples/worlds/ecommerce.yaml --seed 42
 #   → payments + crm + email all see the same 50 customers; charge → update CRM → email, consistently.
 
-# Scaffold a runnable mock straight from an OpenAPI spec:
+# Scaffold a runnable mock from an OpenAPI spec — or from captured traffic (HAR):
 mockworld record --openapi ./petstore.yaml --out ./petstore_mock
+mockworld record --har ./session.har --name orders --out ./orders_mock
 #   → standard REST paths become declarative CRUD; custom actions get handler stubs to fill in.
 
 # Install a community mock from a registry (the network-effect moat):
@@ -71,6 +72,13 @@ mockworld snapshot save mock:payments bug123.mw.json --seed 7
 
 # Govern fidelity drift against a real provider's contract:
 mockworld verify mock:payments --against ./stripe-openapi.yaml
+```
+
+The joint chaos demo — a transport interruption *and* a business decline at once, with
+the side-effect firing exactly once — runs standalone:
+
+```bash
+python examples/demos/exactly_once_under_chaos.py
 ```
 
 See [`SPEC.md`](./SPEC.md), [`ROADMAP.md`](./ROADMAP.md), and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
