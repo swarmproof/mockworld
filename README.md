@@ -40,9 +40,48 @@ Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) sw
 
 ## What's inside (v0.1 built-ins)
 
-`mock:payments` (Stripe-shaped, the marquee) · `mock:email` (Gmail/SMTP) · `mock:exchange` (balances, orders, fills, slippage) · `mock:crm` (records — powers the "delete vs archive" misuse demo) · `mock:files` (S3-shaped). A declarative schema lets you author new mocks; the **registry** (`mockworld add mock:shopify`) is the network effect.
+`mock:payments` (Stripe-shaped, the marquee) · `mock:email` (Gmail/SMTP) · `mock:exchange` (balances, orders, fills, slippage) · `mock:crm` (records — powers the "delete vs archive" misuse demo) · `mock:files` (S3-shaped). A declarative schema (`mock.yaml` + an optional Python handler) lets you author new mocks in minutes.
 
-See [`SPEC.md`](./SPEC.md) and [`ROADMAP.md`](./ROADMAP.md).
+## Compose, record, and share (v0.2)
+
+```bash
+# Compose several mocks into one world with a shared customer namespace:
+mockworld run world:examples/worlds/ecommerce.yaml --seed 42
+#   → payments + crm + email all see the same 50 customers; charge → update CRM → email, consistently.
+
+# Scaffold a runnable mock from an OpenAPI spec — or from captured traffic (HAR):
+mockworld record --openapi ./petstore.yaml --out ./petstore_mock
+mockworld record --har ./session.har --name orders --out ./orders_mock
+#   → standard REST paths become declarative CRUD; custom actions get handler stubs to fill in.
+
+# Install a community mock from a registry (the network-effect moat):
+mockworld search weather
+mockworld add mock:weather            # checksum-verified + safety-gated
+mockworld pack ./my_mock              # print a registry entry (checksum + metadata) to publish
+```
+
+## Swarms, snapshots, and drift (v0.3)
+
+```bash
+# Point a deterministic scripted-persona swarm at a mock and get an Agent Readiness Report:
+mockworld swarm mock:crm --agents 200 --goal hide --seed 42
+#   ⚠ misuse map: 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
+
+# Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
+mockworld snapshot save mock:payments bug123.mw.json --seed 7
+
+# Govern fidelity drift against a real provider's contract:
+mockworld verify mock:payments --against ./stripe-openapi.yaml
+```
+
+The joint chaos demo — a transport interruption *and* a business decline at once, with
+the side-effect firing exactly once — runs standalone:
+
+```bash
+python examples/demos/exactly_once_under_chaos.py
+```
+
+See [`SPEC.md`](./SPEC.md), [`ROADMAP.md`](./ROADMAP.md), and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ## Part of the Swarm Proof toolkit
 

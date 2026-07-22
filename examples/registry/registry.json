@@ -1,0 +1,15 @@
+{
+  "registry_version": "1",
+  "description": "Example mockworld registry index (index-as-repo). Point $MOCKWORLD_REGISTRY at a registry.json like this.",
+  "mocks": [
+    {
+      "name": "weather",
+      "version": "0.1.0",
+      "source": "mocks/weather",
+      "sha256": "681c00f3ef2a99ac059e7b0f9bc5d6ce7963dab1221c7ec0b9a59f6f9d7dbb43",
+      "description": "Fake weather API — stations + deterministic forecast (authoring example).",
+      "fidelity": "sketch",
+      "tools": 3
+    }
+  ]
+}

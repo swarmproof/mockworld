@@ -6,7 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **mockworld** — "a synthetic internet for agents": deterministic, LLM-free fake services (fake Stripe, Gmail, exchange, CRM, S3) exposed as MCP servers so agents can be built and tested without touching production. Part of the Swarm Proof toolkit; companion to [stampede](https://github.com/swarmproof/stampede) (stampede simulates the *agents*, mockworld simulates the *world* they act on). Apache-2.0.
 
-**Current state: docs-only, pre-implementation.** There is no code, no build system, and no test suite yet — v0.1 is planned. Do not invent `pip install` / `pytest` commands; when implementation starts, the planned stack is Python 3.11+, official `mcp` SDK / FastMCP, FastAPI + uvicorn, pydantic v2, packaged with uv/hatch as a single `mockworld` wheel. Planned CLI: `mockworld run|list|reset|inspect|validate`.
+**Current state: v0.1 + v0.2 implemented** (on feature branches; see git). Python 3.11+, official `mcp` SDK, pydantic v2, click, httpx; packaged with hatchling. Dev loop: `uv venv && uv pip install -e ".[dev]"`, then `python -m pytest -q` (53 tests, ~1s) and `mockworld <cmd>`.
+
+### Module map (`src/mockworld/`)
+- `determinism.py` — the seeded entropy funnel (clock/ids/rng/fault-dice). The root of all guarantees.
+- `state.py` — `StateStore` (Memory/SQLite) + copy-on-write `StateView`; session isolation lives here.
+- `session.py` — per-session logical counters. `schema.py` — pydantic `mock.yaml` models. `errors.py` — error library + `Result`.
+- `faults.py` — fault injector (probabilistic + `when:` conditional). `dispatch.py` — CRUD + handler ABI. `handler_ctx.py` — the `ctx` handed to handlers.
+- `loader.py` — load a mock dir (+ registry-installed resolution). `engine.py` — the transport-free call path (start here to trace a request).
+- `trace.py` — OTel-GenAI-profile spans. `server.py` — MCP stdio+HTTP adapter. `control.py` — control plane + stampede `Target`. `cli.py` — commands. `validate.py` — the entropy linter.
+- `registry.py` (v0.2) — `add`/`search`, checksum + safety gate. `world.py` (v0.2) — compose mocks with a shared identity pool. `record.py` (v0.2) — OpenAPI → scaffold.
+- `snapshot.py` (v0.3) — portable `.mw.json` artifacts + migration. `swarm.py` (v0.3) — persona swarm → Agent Readiness Report (misuse map). `verify.py` (v0.3) — contract-drift vs OpenAPI.
+- `mocks/<name>/` — the five built-ins (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
+
+CLI: `run` (stdio/http, also `run world:<file>`), `list`, `inspect`, `validate`, `reset`, `demo`, `add`, `search`, `pack`, `record`. The engine is deliberately MCP-free; server/control/CLI are thin adapters (keeps determinism/isolation tests pure).
 
 ## Document map
 
