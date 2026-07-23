@@ -38,6 +38,26 @@ mockworld demo mock:payments          # prove determinism: same seed → identic
 
 Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) swarm) at it. `reset --seed 42` returns a running server to a byte-identical world, every time.
 
+### In your test suite
+
+Installing mockworld gives every `pytest` run a `mockworld` fixture — a deterministic fake Stripe in two lines:
+
+```python
+def test_agent_handles_a_decline(mockworld):
+    pay = mockworld.start("mock:payments", seed=7, faults="hostile")
+    cust = pay.call("create_customer", {"name": "Ada", "balance": 10_000}).data
+    result = my_agent.charge(pay, cust["id"], 2_500)   # your agent, against a fake Stripe
+    assert result.retried_sanely
+```
+
+### Author your own
+
+```bash
+mockworld new mystripe        # a runnable, clean-linting mock to grow from
+```
+
+See [`docs/AUTHORING.md`](./docs/AUTHORING.md) for the schema and handler ABI, and [`mock:hello`](./src/mockworld/mocks/hello/) for the smallest complete example.
+
 ## What's inside (v0.1 built-ins)
 
 `mock:payments` (Stripe-shaped, the marquee) · `mock:email` (Gmail/SMTP) · `mock:exchange` (balances, orders, fills, slippage) · `mock:crm` (records — powers the "delete vs archive" misuse demo) · `mock:files` (S3-shaped). A declarative schema (`mock.yaml` + an optional Python handler) lets you author new mocks in minutes.
