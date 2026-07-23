@@ -1,0 +1,53 @@
+schema_version: "1"
+name: hello
+version: "0.1.0"
+description: >
+  The smallest useful mock — a greeter. Read it end-to-end to learn the anatomy of
+  a mockworld mock: declarative CRUD, one Python handler, a seeded dataset, and a
+  declared fault. Copy it with `mockworld new <name>` to start your own.
+fidelity: sketch
+
+# STATE: declared collections, seeded at boot. `key` names the primary-key field.
+state:
+  greetings:
+    key: id
+    fields: {id: str, name: str, message: str, created: int}
+
+seed:
+  generator: python:seed.generate
+  volume: {greetings: 5}
+
+tools:
+  # A Python-handler tool: complex/stateful behavior lives in handlers.py.
+  - name: say_hello
+    description: "Greet someone by name and record the greeting. Returns the greeting object."
+    params:
+      name: {type: str, required: true}
+    behavior: python:handlers.say_hello
+    faults:
+      # A declared, seeded fault: ~5% of calls get a 429 under the 'realistic' profile.
+      - type: rate_limited
+        probability: 0.05
+        retry_after_s: 1
+
+  # Declarative CRUD tools need no Python at all.
+  - name: get_greeting
+    description: "Retrieve a past greeting by id."
+    params:
+      id: {type: str, required: true}
+    behavior: crud:read
+    collection: greetings
+
+  - name: list_greetings
+    description: "List all recorded greetings."
+    params: {}
+    behavior: crud:list
+    collection: greetings
+
+fault_profiles:
+  none: {}
+  realistic: {inherit: tool_defaults}
+  hostile:
+    inherit: tool_defaults
+    overrides:
+      say_hello: {rate_limited: 0.5}

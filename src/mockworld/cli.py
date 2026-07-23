@@ -125,6 +125,23 @@ def pack(mock_dir) -> None:
     click.echo(json.dumps(entry, indent=2))
 
 
+@main.command(help="Scaffold a fresh, runnable mock to start authoring from.")
+@click.argument("name")
+@click.option("--out", "out_dir", type=click.Path(), default=None, help="Output directory (default: ./<name>).")
+def new(name, out_dir) -> None:
+    from .scaffold import new_mock
+
+    try:
+        out = new_mock(name, out_dir=out_dir)
+    except FileExistsError as exc:
+        raise SystemExit(click.style(str(exc), fg="red"))
+    findings = validate_mock(str(out))
+    ok = not [f for f in findings if f.level == "error"]
+    click.echo(click.style(f"✓ created {out}", fg="green"))
+    click.echo(f"  {'lints clean · ' if ok else ''}try: mockworld run {out} --seed 1")
+    click.echo("  see docs/AUTHORING.md for the schema + handler ABI.")
+
+
 @main.command(help="Scaffold a new mock from an OpenAPI spec or a HAR capture (record-mode).")
 @click.option("--openapi", "openapi", type=click.Path(exists=True), default=None, help="OpenAPI JSON/YAML spec.")
 @click.option("--har", "har", type=click.Path(exists=True), default=None, help="HAR traffic capture.")
