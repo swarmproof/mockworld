@@ -38,6 +38,10 @@ dev = [
 [project.scripts]
 mockworld = "mockworld.cli:main"
 
+# Ship the `mockworld` pytest fixture to any installed test suite.
+[project.entry-points.pytest11]
+mockworld = "mockworld.pytest_plugin"
+
 [project.urls]
 Homepage = "https://github.com/swarmproof/mockworld"
 Repository = "https://github.com/swarmproof/mockworld"
