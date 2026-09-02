@@ -5,8 +5,8 @@ smoke-tests, publishes to PyPI (Trusted Publishing), and creates a GitHub releas
 
 ## One-time PyPI setup (Trusted Publishing — no stored token)
 
-1. Claim the project name on PyPI (a maintainer uploads once, or reserve it).
-2. On PyPI → the `mockworld` project → **Publishing** → add a **Trusted Publisher**:
+1. Project name is `mockworld-mcp` (the plain `mockworld` is reserved by another project).
+2. On PyPI → the `mockworld-mcp` project → **Publishing** → add a **Trusted Publisher**:
    - Owner: `swarmproof`
    - Repository: `mockworld`
    - Workflow: `release.yml`
@@ -35,6 +35,6 @@ The workflow then:
 ## Verifying
 
 ```bash
-pip install mockworld==0.1.0
+pip install mockworld-mcp==0.2.0
 mockworld demo mock:payments   # identical: True
 ```
