@@ -171,18 +171,21 @@ def record(openapi, har, name, out_dir) -> None:
 @click.option("--store", type=click.Choice(["memory", "sqlite"]), default="memory")
 @click.option("--record-trace", type=click.Path(), default=None, help="Write an NDJSON trace to this file.")
 @click.option("--otlp", "otlp", default=None, help="OTLP/HTTP collector base URL (spans POSTed to /v1/traces).")
-def run(source, transport, host, port, seed, faults, store, record_trace, otlp) -> None:
+@click.option("--descriptions", type=click.Choice(["clear", "ambiguous"]), default="clear",
+              help="Serve clear or intentionally-ambiguous tool descriptions (misuse-map fuel).")
+def run(source, transport, host, port, seed, faults, store, record_trace, otlp, descriptions) -> None:
     from .server import MockServer
 
     if source.startswith("world:"):
         from .world import WorldEngine, load_world
 
-        engine = WorldEngine(load_world(source), seed=seed, faults=faults, store=store, run_id=f"cli-{seed}")
+        engine = WorldEngine(load_world(source), seed=seed, faults=faults, store=store,
+                             run_id=f"cli-{seed}", descriptions=descriptions)
     else:
         trace_sink = open(record_trace, "w") if record_trace else None
         engine = Engine.from_source(
             source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}",
-            trace_sink=trace_sink, otlp_endpoint=otlp,
+            trace_sink=trace_sink, otlp_endpoint=otlp, descriptions=descriptions,
         )
 
     server = MockServer(engine)
@@ -205,16 +208,19 @@ def run(source, transport, host, port, seed, faults, store, record_trace, otlp) 
 @click.option("--goal", type=click.Choice(["hide", "transact"]), default="hide")
 @click.option("--seed", type=int, default=42)
 @click.option("--faults", default="realistic")
+@click.option("--descriptions", type=click.Choice(["clear", "ambiguous"]), default="clear",
+              help="A/B the misuse map under clear vs ambiguous tool descriptions.")
 @click.option("--json", "as_json", is_flag=True, help="Emit the report as JSON.")
-def swarm(source, agents, goal, seed, faults, as_json) -> None:
+def swarm(source, agents, goal, seed, faults, descriptions, as_json) -> None:
     from .swarm import format_report, run_swarm
 
     if source.startswith("world:"):
         from .world import WorldEngine, load_world
 
-        engine = WorldEngine(load_world(source), seed=seed, faults=faults)
+        engine = WorldEngine(load_world(source), seed=seed, faults=faults, descriptions=descriptions)
     else:
-        engine = Engine.from_source(source, seed=seed, faults=faults, run_id=f"swarm-{seed}")
+        engine = Engine.from_source(source, seed=seed, faults=faults, run_id=f"swarm-{seed}",
+                                    descriptions=descriptions)
 
     report = run_swarm(engine, agents=agents, goal=goal, seed=seed)
     click.echo(json.dumps(report.as_dict(), indent=2) if as_json else format_report(report))

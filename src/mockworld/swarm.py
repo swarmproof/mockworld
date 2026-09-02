@@ -31,6 +31,20 @@ def _persona_for(seed: int, i: int) -> str:
     return _PERSONAS[h % len(_PERSONAS)]
 
 
+def _degrade_for_ambiguity(persona: str, descriptions: str, seed: int, i: int) -> str:
+    """Model REQ-MCP-6: vague descriptions turn some careful agents confused.
+
+    When tool descriptions are ambiguous, ~45% of otherwise-careful agents can no
+    longer tell archive from delete and act like a confused agent. Deterministic,
+    so the clear-vs-ambiguous misuse A/B is reproducible.
+    """
+    if descriptions == "ambiguous" and persona == "careful":
+        h = int.from_bytes(hashlib.blake2b(f"degrade:{seed}:{i}".encode(), digest_size=2).digest(), "big")
+        if h % 100 < 45:
+            return "confused"
+    return persona
+
+
 @dataclass
 class AgentReadinessReport:
     mock: str
@@ -50,15 +64,16 @@ class AgentReadinessReport:
         }
 
 
-def _crm_records_and_tools(engine, tools: set[str]) -> tuple[dict | None, tuple[str, str] | None]:
-    """Locate crm records + the (archive, delete) tool names — standalone or in a world."""
+def _crm_records_and_tools(engine, tools: set[str]):
+    """Locate crm records + (archive, delete) tool names + source engine — standalone or world."""
     store = getattr(engine, "store", None)
     if store is not None and "records" in getattr(store, "_base", {}):
-        return store._base["records"], ("archive_record", "delete_record")
+        return store._base["records"], ("archive_record", "delete_record"), engine
     engines = getattr(engine, "engines", None)
     if engines and "crm" in engines and {"crm_archive_record", "crm_delete_record"} <= tools:
-        return engines["crm"].store._base["records"], ("crm_archive_record", "crm_delete_record")
-    return None, None
+        crm = engines["crm"]
+        return crm.store._base["records"], ("crm_archive_record", "crm_delete_record"), crm
+    return None, None, None
 
 
 def run_swarm(engine: _Callable, *, agents: int = 200, goal: str = "hide", seed: int = 42) -> AgentReadinessReport:
@@ -69,17 +84,18 @@ def run_swarm(engine: _Callable, *, agents: int = 200, goal: str = "hide", seed:
     misuse: Counter = Counter()
 
     # A deterministic target record for the "hide" goal (crm standalone or in a world).
-    records, hide_tools = (None, None)
+    records, hide_tools, crm_engine = (None, None, None)
     if goal == "hide":
-        records, hide_tools = _crm_records_and_tools(engine, tools)
+        records, hide_tools, crm_engine = _crm_records_and_tools(engine, tools)
     target_record = None
     if records:
         unlocked = [r for r, v in sorted(records.items()) if not v["locked"]]
         target_record = unlocked[0] if unlocked else None
+    descriptions = getattr(crm_engine or engine, "descriptions", "clear")
 
     for i in range(agents):
         sid = f"agent-{i}"
-        persona = _persona_for(seed, i)
+        persona = _degrade_for_ambiguity(_persona_for(seed, i), descriptions, seed, i)
 
         if goal == "hide" and hide_tools and target_record:
             archive_tool, delete_tool = hide_tools
