@@ -87,6 +87,10 @@ mockworld pack ./my_mock              # print a registry entry (checksum + metad
 mockworld swarm mock:crm --agents 200 --goal hide --seed 42
 #   ⚠ misuse map: 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
 
+# A/B how tool-description quality drives misuse (same swarm, vaguer descriptions):
+mockworld swarm mock:crm --agents 200 --seed 42 --descriptions ambiguous
+#   ⚠ misuse map: 45.5% — worse descriptions, more destroyed data.
+
 # Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
 mockworld snapshot save mock:payments bug123.mw.json --seed 7
 
