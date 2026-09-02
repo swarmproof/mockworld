@@ -155,6 +155,8 @@ class RegistryClient:
 
     def _fetch(self, entry: RegistryEntry, into: Path) -> Path:
         src = entry.source
+        if src.startswith("github:"):
+            return self._fetch_github_subdir(src[len("github:"):], into)
         if src.startswith("git+"):
             return self._fetch_git(src[4:], into)
         parsed = urlparse(src)
@@ -179,6 +181,36 @@ class RegistryClient:
             if (candidate / "mock.yaml").exists():
                 return candidate
         raise RegistryError("tarball did not contain a mock.yaml")
+
+    @staticmethod
+    def github_tarball_url(spec: str) -> tuple[str, str]:
+        """Parse ``owner/repo@ref/sub/dir`` → (codeload tarball URL, subdir).
+
+        Lets an index-as-repo host every mock as a subdirectory of one repo, so a
+        contributor just PRs ``mocks/<name>/`` plus a ``registry.json`` entry — no
+        per-mock release asset (ARCHITECTURE §8, the moat).
+        """
+        repo_part, sep, rest = spec.partition("@")
+        if not sep or "/" not in repo_part:
+            raise RegistryError(f"github source must be 'owner/repo@ref/subdir': {spec!r}")
+        ref, _, subdir = rest.partition("/")
+        if not ref:
+            raise RegistryError(f"github source needs a ref after '@': {spec!r}")
+        return f"https://codeload.github.com/{repo_part}/tar.gz/{ref}", subdir
+
+    def _fetch_github_subdir(self, spec: str, into: Path) -> Path:
+        url, subdir = self.github_tarball_url(spec)
+        archive = into / "repo.tar.gz"
+        archive.write_bytes(self._read_bytes(url))
+        with tarfile.open(archive) as tf:
+            tf.extractall(into, filter="data")
+        roots = [p for p in into.iterdir() if p.is_dir()]
+        if not roots:
+            raise RegistryError(f"empty archive from {url}")
+        mock_dir = roots[0] / subdir if subdir else roots[0]
+        if not (mock_dir / "mock.yaml").exists():
+            raise RegistryError(f"no mock.yaml at {subdir!r} in {spec!r}")
+        return mock_dir
 
     def _fetch_git(self, url: str, into: Path) -> Path:
         import subprocess  # local trusted operation, not handler code
