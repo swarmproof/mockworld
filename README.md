@@ -26,7 +26,7 @@ mockworld takes the opposite bet — **deterministic, MCP-native, open:**
 ## Quickstart
 
 ```bash
-pip install mockworld                 # (from source until first PyPI cut: pip install -e ".[dev]")
+pip install mockworld-mcp             # ships as mockworld-mcp; `import mockworld` and the `mockworld` CLI are unchanged
 
 mockworld list                        # the 5 built-in mocks
 mockworld run mock:payments           # a stateful fake Stripe as an MCP (stdio) server

@@ -3,7 +3,10 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
-## [Unreleased]
+## [0.2.0] — 2026-09-02
+
+Distribution renamed to **`mockworld-mcp`** on PyPI (`import mockworld` and the
+`mockworld` CLI are unchanged) — the plain name is reserved by an unrelated project.
 
 ### Added
 - **OTLP trace export** (REQ-OBS-3): `mockworld run --otlp <collector-url>` POSTs
