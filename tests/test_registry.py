@@ -72,3 +72,20 @@ def test_checksum_is_stable():
     a = dir_checksum(EXAMPLE / "mocks" / "weather")
     b = dir_checksum(EXAMPLE / "mocks" / "weather")
     assert a == b and len(a) == 64
+
+
+def test_github_source_url_parsing():
+    url, subdir = RegistryClient.github_tarball_url("swarmproof/mockworld-registry@main/mocks/weather")
+    assert url == "https://codeload.github.com/swarmproof/mockworld-registry/tar.gz/main"
+    assert subdir == "mocks/weather"
+    # tag ref, no subdir
+    url2, sub2 = RegistryClient.github_tarball_url("owner/repo@v1.0.0")
+    assert url2.endswith("/tar.gz/v1.0.0") and sub2 == ""
+
+
+def test_github_source_rejects_malformed():
+    import pytest
+
+    for bad in ("noref-here", "owner/repo", "@main/x"):
+        with pytest.raises(RegistryError):
+            RegistryClient.github_tarball_url(bad)

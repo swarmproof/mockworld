@@ -3,6 +3,15 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.2.1] — 2026-09-02
+
+### Added
+- Registry **`github:` source scheme** (`owner/repo@ref/subdir`): `mockworld add`
+  can install a mock that lives in a subdirectory of a shared index-as-repo, so
+  the public `mockworld-registry` grows by simple PRs (a folder + an index entry),
+  no per-mock release asset. Powers `mockworld add mock:<name>` against the
+  default public registry.
+
 ## [0.2.0] — 2026-09-02
 
 Distribution renamed to **`mockworld-mcp`** on PyPI (`import mockworld` and the
