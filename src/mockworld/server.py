@@ -108,6 +108,39 @@ class MockServer:
                 for t in self.engine.definition.tools
             ]
 
+        @self.server.list_resources()
+        async def list_resources() -> list[types.Resource]:
+            resources = [
+                types.Resource(uri="mockworld://mock", name=f"{self.engine.definition.name} definition",
+                               description="Tools, state shape, and fidelity of this mock.",
+                               mimeType="application/json"),
+                types.Resource(uri="mockworld://faults", name="fault catalog",
+                               description="Declared faults per tool and the available fault profiles.",
+                               mimeType="application/json"),
+            ]
+            for coll in getattr(self.engine.definition, "state", {}):
+                resources.append(types.Resource(
+                    uri=f"mockworld://state/{coll}", name=f"{coll} (current)",
+                    description=f"Read-only view of the '{coll}' collection for this session.",
+                    mimeType="application/json"))
+            return resources
+
+        @self.server.read_resource()
+        async def read_resource(uri) -> str:
+            s = str(uri)
+            if s == "mockworld://mock":
+                return json.dumps(self._mock_summary())
+            if s == "mockworld://faults":
+                return json.dumps(self._fault_summary())
+            if s.startswith("mockworld://state/"):
+                coll = s.rsplit("/", 1)[-1]
+                store = getattr(self.engine, "store", None)
+                if store is None:
+                    return json.dumps({"collection": coll, "items": []})
+                data = store.snapshot_dict(self._session_key()).get(coll, {})
+                return json.dumps({"collection": coll, "count": len(data), "items": list(data.values())})
+            raise ValueError(f"unknown resource: {s}")
+
         @self.server.call_tool()
         async def call_tool(name: str, arguments: dict[str, Any]) -> Any:
             result = self.engine.call(
@@ -125,6 +158,25 @@ class MockServer:
                 content=[types.TextContent(type="text", text=json.dumps(payload))],
                 isError=True,
             )
+
+    def _mock_summary(self) -> dict[str, Any]:
+        d = self.engine.definition
+        return {
+            "name": d.name,
+            "version": d.version,
+            "fidelity": getattr(d, "fidelity", "n/a"),
+            "state": {c: coll.fields for c, coll in getattr(d, "state", {}).items()},
+            "tools": [{"name": t.name, "description": t.description.strip(),
+                       "params": {n: s.type for n, s in t.params.items()}} for t in d.tools],
+        }
+
+    def _fault_summary(self) -> dict[str, Any]:
+        d = self.engine.definition
+        catalog = {
+            t.name: [f.error or f.type for f in t.faults]
+            for t in d.tools if getattr(t, "faults", None)
+        }
+        return {"profiles": list(getattr(d, "fault_profiles", {})), "declared_faults": catalog}
 
     def init_options(self):
         return self.server.create_initialization_options()

@@ -25,7 +25,7 @@ from .loader import LoadedMock, load_mock
 from .schema import FaultProfile, ParamSpec, ToolDef
 from .session import SessionManager
 from .state import make_store
-from .trace import TraceEmitter
+from .trace import OTLPExporter, TraceEmitter
 
 STDIO_SESSION = "stdio-default"  # implicit single session under stdio (ADR-2)
 
@@ -46,6 +46,7 @@ class Engine:
         store: str = "memory",
         run_id: str = "local",
         trace_sink: TextIO | None = None,
+        otlp_endpoint: str | None = None,
         apply_latency: bool = False,
         shared: dict | None = None,
     ) -> None:
@@ -61,7 +62,8 @@ class Engine:
         self.sessions = SessionManager(self.store)
         self.injector = FaultInjector(self.dctx)
         self.dispatcher = BehaviorDispatcher(self.definition, mock.handlers)
-        self.tracer = TraceEmitter(self.definition.name, self.definition.version, trace_sink)
+        exporter = OTLPExporter(otlp_endpoint) if otlp_endpoint else None
+        self.tracer = TraceEmitter(self.definition.name, self.definition.version, trace_sink, exporter)
 
         self._profile = self._resolve_profile(faults)
         self._seed_base()

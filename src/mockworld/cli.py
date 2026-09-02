@@ -170,7 +170,8 @@ def record(openapi, har, name, out_dir) -> None:
 @click.option("--faults", default="realistic", help="Fault profile: none | realistic | hostile | <name>.")
 @click.option("--store", type=click.Choice(["memory", "sqlite"]), default="memory")
 @click.option("--record-trace", type=click.Path(), default=None, help="Write an NDJSON trace to this file.")
-def run(source, transport, host, port, seed, faults, store, record_trace) -> None:
+@click.option("--otlp", "otlp", default=None, help="OTLP/HTTP collector base URL (spans POSTed to /v1/traces).")
+def run(source, transport, host, port, seed, faults, store, record_trace, otlp) -> None:
     from .server import MockServer
 
     if source.startswith("world:"):
@@ -180,7 +181,8 @@ def run(source, transport, host, port, seed, faults, store, record_trace) -> Non
     else:
         trace_sink = open(record_trace, "w") if record_trace else None
         engine = Engine.from_source(
-            source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}", trace_sink=trace_sink
+            source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}",
+            trace_sink=trace_sink, otlp_endpoint=otlp,
         )
 
     server = MockServer(engine)

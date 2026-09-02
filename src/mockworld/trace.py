@@ -61,13 +61,82 @@ class Span:
         }
 
 
-class TraceEmitter:
-    """Collects spans in memory and optionally mirrors them to an NDJSON sink."""
+_OTEL_KIND = {"SERVER": 2, "CLIENT": 3, "INTERNAL": 1}
+_OTEL_STATUS = {"UNSET": 0, "OK": 1, "ERROR": 2}
 
-    def __init__(self, service_name: str, service_version: str, sink: TextIO | None = None) -> None:
+
+def _otlp_value(v: object) -> dict:
+    if isinstance(v, bool):
+        return {"boolValue": v}
+    if isinstance(v, int):
+        return {"intValue": str(v)}  # OTLP/JSON encodes int64 as a string
+    if isinstance(v, float):
+        return {"doubleValue": v}
+    return {"stringValue": str(v)}
+
+
+def span_to_otlp_resource_spans(span: Span) -> dict:
+    """One span → an OTLP/HTTP JSON ResourceSpans envelope (spec-compliant)."""
+    otlp_span: dict = {
+        "traceId": span.trace_id,
+        "spanId": span.span_id,
+        "name": span.name,
+        "kind": _OTEL_KIND.get(span.kind, 1),
+        "startTimeUnixNano": str(span.start_unix_nano),
+        "endTimeUnixNano": str(span.end_unix_nano),
+        "attributes": [{"key": k, "value": _otlp_value(v)} for k, v in span.attributes.items()],
+        "status": {"code": _OTEL_STATUS.get(span.status, 0)},
+    }
+    if span.parent_span_id:
+        otlp_span["parentSpanId"] = span.parent_span_id
+    return {
+        "resource": {"attributes": [{"key": k, "value": _otlp_value(v)}
+                                    for k, v in span.resource.items()]},
+        "scopeSpans": [{"scope": {"name": "mockworld"}, "spans": [otlp_span]}],
+    }
+
+
+class OTLPExporter:
+    """Best-effort OTLP/HTTP JSON exporter — POSTs spans to a collector's /v1/traces.
+
+    Opt-in (only when ``--otlp`` is set). Failures are swallowed so a downed
+    collector never breaks a tool call; after repeated failures it self-disables.
+    """
+
+    def __init__(self, endpoint: str) -> None:
+        self.url = endpoint.rstrip("/") + "/v1/traces"
+        self._enabled = True
+        self._failures = 0
+
+    def export(self, span: Span) -> None:
+        if not self._enabled:
+            return
+        try:
+            import httpx
+
+            httpx.post(self.url, json={"resourceSpans": [span_to_otlp_resource_spans(span)]},
+                       timeout=2.0)
+            self._failures = 0
+        except Exception:
+            self._failures += 1
+            if self._failures >= 5:
+                self._enabled = False  # stop hammering a collector that isn't there
+
+
+class TraceEmitter:
+    """Collects spans in memory; optionally mirrors to an NDJSON sink and/or OTLP."""
+
+    def __init__(
+        self,
+        service_name: str,
+        service_version: str,
+        sink: TextIO | None = None,
+        exporter: "OTLPExporter | None" = None,
+    ) -> None:
         self.service_name = service_name
         self.service_version = service_version
         self._sink = sink
+        self._exporter = exporter
         self.spans: list[Span] = []
 
     def emit(self, span: Span) -> None:
@@ -75,6 +144,8 @@ class TraceEmitter:
         if self._sink is not None:
             self._sink.write(json.dumps(span.to_otel()) + "\n")
             self._sink.flush()
+        if self._exporter is not None:
+            self._exporter.export(span)
 
     def build_span(
         self,
