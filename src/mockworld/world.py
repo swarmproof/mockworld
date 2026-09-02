@@ -71,8 +71,10 @@ class WorldEngine:
         faults: str | dict = "realistic",
         store: str = "memory",
         run_id: str = "world",
+        descriptions: str = "clear",
     ) -> None:
         self.world = world
+        self.descriptions = descriptions
         self.seed = world.seed if seed is None else seed
         self.shared = self._build_identity_pool(self.seed)
         self.engines: dict[str, Engine] = {}
@@ -82,7 +84,7 @@ class WorldEngine:
         for mock_name in world.mocks:
             eng = Engine.from_source(
                 f"mock:{mock_name}", seed=self.seed, faults=faults, store=store,
-                run_id=run_id, shared=self.shared,
+                run_id=run_id, shared=self.shared, descriptions=descriptions,
             )
             self.engines[mock_name] = eng
             for t in eng.definition.tools:

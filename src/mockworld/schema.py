@@ -74,10 +74,18 @@ class ToolDef(BaseModel):
 
     name: str
     description: str
+    # An intentionally vague variant, served under `--descriptions ambiguous` to
+    # exercise the misuse map (REQ-MCP-6). Optional; falls back to `description`.
+    ambiguous_description: str | None = None
     params: dict[str, ParamSpec] = Field(default_factory=dict)
     behavior: str  # "crud:{create,read,update,delete,list}" | "python:handlers.<fn>"
     collection: str | None = None  # required for crud behaviors
     faults: list[FaultRule] = Field(default_factory=list)
+
+    def description_for(self, mode: str) -> str:
+        if mode == "ambiguous" and self.ambiguous_description:
+            return self.ambiguous_description
+        return self.description
 
     @field_validator("params", mode="before")
     @classmethod

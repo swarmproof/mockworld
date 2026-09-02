@@ -49,6 +49,7 @@ class Engine:
         otlp_endpoint: str | None = None,
         apply_latency: bool = False,
         shared: dict | None = None,
+        descriptions: str = "clear",
     ) -> None:
         self.mock = mock
         self.definition = mock.definition
@@ -56,6 +57,7 @@ class Engine:
         self.run_id = run_id
         self.apply_latency = apply_latency
         self.shared = shared
+        self.descriptions = descriptions  # "clear" | "ambiguous" (REQ-MCP-6)
 
         self.dctx = DeterministicContext(seed)
         self.store = make_store(store, self.definition.collection_names())
@@ -101,6 +103,10 @@ class Engine:
 
     def set_faults(self, faults: str | dict) -> None:
         self._profile = self._resolve_profile(faults)
+
+    def effective_description(self, tool: ToolDef) -> str:
+        """The tool description to advertise, honoring the descriptions mode (REQ-MCP-6)."""
+        return tool.description_for(self.descriptions)
 
     def session_reset(self, session_id: str) -> None:
         self.sessions.reset_session(session_id)
