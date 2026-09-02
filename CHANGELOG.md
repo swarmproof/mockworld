@@ -3,6 +3,18 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [Unreleased]
+
+### Added
+- **OTLP trace export** (REQ-OBS-3): `mockworld run --otlp <collector-url>` POSTs
+  target-side spans as OTLP/HTTP JSON to `<url>/v1/traces` — dependency-free, so
+  mockworld traces drop into any OpenTelemetry backend. Best-effort and
+  self-disabling if the collector is down.
+- **MCP resources** (REQ-MCP-4): each server exposes read-only reference data —
+  `mockworld://mock` (tools + state shape + fidelity), `mockworld://faults`
+  (declared fault catalog + profiles), and `mockworld://state/<collection>`
+  (the session's current data).
+
 ## [0.1.0] — 2026-09-01
 
 First public release — the deterministic, LLM-free MCP mock engine plus the full
