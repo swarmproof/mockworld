@@ -14,6 +14,11 @@ All notable changes to mockworld are documented here. Format loosely follows
   `mockworld://mock` (tools + state shape + fidelity), `mockworld://faults`
   (declared fault catalog + profiles), and `mockworld://state/<collection>`
   (the session's current data).
+- **Ambiguous tool-description variants** (REQ-MCP-6): a tool can declare an
+  `ambiguous_description`; `--descriptions ambiguous` serves it. The swarm is
+  clarity-sensitive, so the misuse map can A/B description quality — e.g.
+  crm delete-vs-archive misuse rises from ~33% (clear) to ~46% (ambiguous),
+  reproducibly.
 
 ## [0.1.0] — 2026-09-01
 

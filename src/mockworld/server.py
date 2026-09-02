@@ -99,10 +99,11 @@ class MockServer:
     def _register(self) -> None:
         @self.server.list_tools()
         async def list_tools() -> list[types.Tool]:
+            describe = getattr(self.engine, "effective_description", lambda t: t.description)
             return [
                 types.Tool(
                     name=t.name,
-                    description=t.description.strip(),
+                    description=describe(t).strip(),
                     inputSchema=_input_schema(t),
                 )
                 for t in self.engine.definition.tools
