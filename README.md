@@ -4,7 +4,7 @@
 
 ### A synthetic internet for agents
 
-**The localhost for the agent economy.** Spin up high-fidelity fake services — a fake Stripe, a fake Gmail, a fake exchange, a fake CRM — as instant [MCP](https://modelcontextprotocol.io) servers, so you can build and test agents without touching production, leaking data, or paying for real API calls.
+Run fake services — a fake Stripe, a fake Gmail, a fake exchange, a fake CRM — as local [MCP](https://modelcontextprotocol.io) servers, so you can build and test agents without touching production, leaking data, or paying for real API calls.
 
 [![PyPI](https://img.shields.io/pypi/v/mockworld-mcp.svg)](https://pypi.org/project/mockworld-mcp/)
 [![Python](https://img.shields.io/pypi/pyversions/mockworld-mcp.svg)](https://pypi.org/project/mockworld-mcp/)
@@ -15,7 +15,7 @@
 
 ```bash
 pip install mockworld-mcp
-mockworld run mock:payments      # a stateful fake Stripe as an MCP server, one command
+mockworld run mock:payments      # a stateful fake Stripe as an MCP server
 ```
 
 > **Status:** released — `mockworld-mcp` on PyPI. Deterministic engine, 6 built-in mocks, MCP stdio + HTTP, fault injection, control plane, registry, world composition, record-mode, snapshots, and a stampede `Target`. Companion to [stampede](https://github.com/swarmproof/stampede).
@@ -41,13 +41,13 @@ mockworld run mock:payments      # a stateful fake Stripe as an MCP server, one 
 
 Agents need to *do things* — charge a card, send an email, place a trade, update a record — but you can't point a half-finished, non-deterministic agent at real Stripe/Gmail/an exchange during development. So teams hand-build throwaway mocks for every project, or test against nothing and find failures in production.
 
-The 2026 crop of agent sandboxes (Veris Sandbox, AWS ToolSimulator) fills that gap by putting an **LLM in the response path** — convenient, but it means your mock never behaves the same way twice. A stochastic mock can't give you a CI run that's green for the same reason twice, a byte-identical bug repro, or an offline/air-gapped test.
+Recent agent sandboxes (Veris Sandbox, AWS ToolSimulator) put an **LLM in the response path**, so the mock does not behave the same way twice. That rules out a CI run that is green for the same reason twice, a byte-identical bug repro, and offline or air-gapped testing.
 
-mockworld takes the opposite bet — **deterministic, MCP-native, open:**
+mockworld is deterministic, MCP-native, and open:
 
-- **Deterministic & LLM-free.** A seed fully determines state, IDs, timing, and every injected fault. `reset --seed 42` produces the *same* decline, every time, across 50 parallel CI workers. No LLM in the hot path, ever — that's the moat, not a footnote.
-- **MCP-native & agent-realistic.** Services are real MCP servers with agent-grade tool descriptions, stateful behavior, and *business-logic* fault semantics (declines, insufficient funds, rate limits, disputes) — the things agents actually stress. Postman/WireMock are built for human-driven HTTP testing; they don't speak MCP and can't model business state.
-- **Open & self-hostable.** `pip install`, runs on your laptop, offline, free, Apache-2.0 — not a hosted SaaS.
+- **Deterministic & LLM-free.** A seed determines state, IDs, timing, and every injected fault. `reset --seed 42` produces the same decline across 50 parallel CI workers. No LLM in the response path.
+- **MCP-native.** Services are MCP servers with tool descriptions, stateful behavior, and business-logic fault semantics (declines, insufficient funds, rate limits, disputes). Postman and WireMock target human-driven HTTP testing; they don't speak MCP and don't model business state.
+- **Open & self-hostable.** `pip install`, runs locally, offline, Apache-2.0 — not a hosted SaaS.
 
 ## Install
 
@@ -82,7 +82,7 @@ def test_agent_handles_a_decline(mockworld):
     assert result.retried_sanely
 ```
 
-Seeded and in-memory, so each test is deterministic and isolated — 50 parallel workers never collide.
+Seeded and in-memory: each test is deterministic and isolated, and 50 parallel workers don't collide.
 
 ## Built-in mocks
 
@@ -95,7 +95,7 @@ Seeded and in-memory, so each test is deterministic and isolated — 50 parallel
 | `mock:files` | S3 | read-after-write consistency; versioning; slow-download latency |
 | `mock:hello` | — | the smallest complete example, for learning the schema |
 
-Each enforces real stateful invariants and injects seeded, business-shaped faults. A declarative `mock.yaml` (plus an optional Python handler) defines a mock in minutes.
+Each enforces stateful invariants and injects seeded, business-shaped faults. A declarative `mock.yaml` plus an optional Python handler defines a mock.
 
 ## Author & share mocks
 
@@ -125,7 +125,7 @@ mockworld record --har ./session.har --name orders --out ./orders_mock
 mockworld swarm mock:crm --agents 200 --goal hide --seed 42
 #   ⚠ 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
 mockworld swarm mock:crm --agents 200 --seed 42 --descriptions ambiguous
-#   ⚠ 45.5% — vaguer tool descriptions, more destroyed data. Legibility is a measurable property.
+#   ⚠ 45.5% — same swarm, vaguer tool descriptions.
 
 # Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
 mockworld snapshot save mock:payments bug123.mw.json --seed 7
@@ -172,7 +172,7 @@ mockworld/
 └── .github/workflows/       # ci.yml · release.yml
 ```
 
-The engine is deliberately free of any MCP dependency — `server.py`, `control.py`, and `cli.py` are thin adapters over it. That keeps the determinism and isolation tests fast and pure.
+The engine has no MCP dependency; `server.py`, `control.py`, and `cli.py` are adapters over it. This keeps the determinism and isolation tests dependency-free.
 
 ## Documentation
 
@@ -188,7 +188,7 @@ The engine is deliberately free of any MCP dependency — `server.py`, `control.
 
 ## Contributing
 
-Contributions welcome — bug reports, new mocks, and features. Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md). The core principles: **determinism is non-negotiable** (all entropy comes from the seeded `ctx`; the validator enforces it), faults are business-logic only, and every mock ships a `fidelity.md`.
+Contributions welcome — bug reports, new mocks, and features. See [`CONTRIBUTING.md`](./CONTRIBUTING.md). Three rules: determinism is required (all entropy comes from the seeded `ctx`; the validator enforces it), faults are business-logic only, and every mock ships a `fidelity.md`.
 
 ```bash
 git clone https://github.com/swarmproof/mockworld && cd mockworld
@@ -198,7 +198,7 @@ python -m pytest -q
 
 ## License
 
-[Apache-2.0](./LICENSE). Mocks are LLM-free — deterministic services by design. Citable via [`CITATION.cff`](./CITATION.cff).
+[Apache-2.0](./LICENSE). Citable via [`CITATION.cff`](./CITATION.cff).
 
 ## Part of the Swarm Proof toolkit
 

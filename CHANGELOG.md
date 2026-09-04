@@ -3,6 +3,12 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.2.3] — 2026-09-04
+
+### Changed
+- Scrubbed editorializing from the README (removed hype taglines and self-praise;
+  kept every factual claim). Docs-only.
+
 ## [0.2.2] — 2026-09-04
 
 ### Changed
