@@ -3,6 +3,15 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [Unreleased]
+
+### Fixed
+- `when:` fault conditions can now use safe builtins (`len`, `min`, `max`, …).
+  Previously all builtins were stripped, so an expression like `len(params.text)
+  > 4000` raised `NameError` and was silently swallowed to `False` — quietly
+  disabling the fault. Unsafe access (imports, `open`, attribute gadgets) still
+  fails closed.
+
 ## [0.3.0] — 2026-09-04
 
 ### Added

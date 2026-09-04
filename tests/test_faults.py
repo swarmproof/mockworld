@@ -89,6 +89,20 @@ def test_flt8_partial_outage_one_tool_down():
     assert r.err.code == "partial_outage"
 
 
+def test_when_expression_supports_safe_builtins():
+    """A `when:` condition can use len()/min()/etc. — previously they silently
+    raised NameError (stripped builtins) and the fault never fired."""
+    from mockworld.faults import eval_condition
+    from mockworld.state import StateView
+
+    view = StateView({}, {}, [])
+    assert eval_condition("len(params.text) > 3", {"text": "abcd"}, view) is True
+    assert eval_condition("len(params.text) > 3", {"text": "ab"}, view) is False
+    assert eval_condition("max(params.a, params.b) > 5", {"a": 2, "b": 9}, view) is True
+    # unsafe access still fails closed (no builtins beyond the allowlist)
+    assert eval_condition("open('/etc/passwd')", {}, view) is False
+
+
 def test_flt9_layer_boundary_only_business_faults():
     """mockworld never injects transport faults (kills/socket timeouts) — ADR-6."""
     business = {"error_response", "rate_limited", "latency", "partial_outage", "malformed_response"}

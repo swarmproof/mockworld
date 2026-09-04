@@ -53,6 +53,14 @@ class _EvalState:
         return _EvalCollection(self._view, name)
 
 
+# Safe builtins available inside `when:` expressions. No object access, imports,
+# or I/O — just value helpers a condition legitimately needs (e.g. len(params.text)).
+_SAFE_BUILTINS = {
+    "len": len, "min": min, "max": max, "abs": abs, "round": round, "sum": sum,
+    "int": int, "float": float, "str": str, "bool": bool, "any": any, "all": all,
+}
+
+
 def eval_condition(expr: str, params: dict[str, Any], view: StateView) -> bool:
     """Evaluate a ``when:`` expression in a restricted namespace.
 
@@ -62,7 +70,7 @@ def eval_condition(expr: str, params: dict[str, Any], view: StateView) -> bool:
     """
     namespace = {"params": _AttrDict(params), "state": _EvalState(view)}
     try:
-        return bool(eval(expr, {"__builtins__": {}}, namespace))  # noqa: S307 - trusted local
+        return bool(eval(expr, {"__builtins__": _SAFE_BUILTINS}, namespace))  # noqa: S307 - trusted local
     except Exception:
         # A condition that references missing state (e.g. unknown id) simply
         # doesn't fire, rather than crashing the tool call.
