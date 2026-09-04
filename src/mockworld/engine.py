@@ -67,8 +67,23 @@ class Engine:
         exporter = OTLPExporter(otlp_endpoint) if otlp_endpoint else None
         self.tracer = TraceEmitter(self.definition.name, self.definition.version, trace_sink, exporter)
 
+        # Untrusted (registry-installed) mocks run their handlers in a sandbox.
+        self.trusted = mock.trusted
+        self.sandbox = None
+        if not self.trusted:
+            from .sandbox import SandboxWorker
+
+            self.sandbox = SandboxWorker(mock.path)
+            import atexit
+
+            atexit.register(self.close)
+
         self._profile = self._resolve_profile(faults)
         self._seed_base()
+
+    def close(self) -> None:
+        if self.sandbox is not None:
+            self.sandbox.close()
 
     # -- construction helpers ----------------------------------------------------
 
@@ -77,7 +92,11 @@ class Engine:
         return cls(load_mock(source), **kwargs)
 
     def _seed_base(self) -> None:
-        self.store.load_base(self.mock.generate_base(self.dctx, self.shared))
+        if not self.trusted and self.definition.seed.generator.startswith("python:"):
+            base = self.sandbox.seed(self.seed)  # untrusted seed.py runs in the sandbox
+        else:
+            base = self.mock.generate_base(self.dctx, self.shared)
+        self.store.load_base(base)
 
     def _resolve_profile(self, faults: str | dict) -> FaultProfile:
         if isinstance(faults, dict):
@@ -151,7 +170,7 @@ class Engine:
             result = outcome.pre  # short-circuit fault: no behavior, no state change
         else:
             try:
-                result = self.dispatcher.dispatch(tool, ctx, params)
+                result = self._dispatch(tool, ctx, params, view, idx, step)
             except Exception as exc:  # never leak a stack trace to the agent (REQ-RT-11)
                 view.rollback()
                 result = Result.error("internal_error", f"{type(exc).__name__}: {exc}")
@@ -175,6 +194,26 @@ class Engine:
         return result
 
     # -- internals ---------------------------------------------------------------
+
+    def _dispatch(self, tool, ctx, params, view, idx, step) -> Result:
+        # Declarative CRUD is our code; only untrusted Python handlers are sandboxed.
+        if tool.is_crud or self.trusted or self.sandbox is None:
+            return self.dispatcher.dispatch(tool, ctx, params)
+
+        state = {
+            c: {k: view._read(c, k) for k in view._keys(c)}
+            for c in self.definition.collection_names()
+        }
+        result, mutations, deletes = self.sandbox.call(
+            seed=self.seed, tool=tool.name, idx=idx, step=step, state=state, params=params
+        )
+        for coll, entries in mutations.items():
+            for key, value in entries.items():
+                view._write(coll, key, value)
+        for coll, keys in deletes.items():
+            for key in keys:
+                view._delete(coll, key)
+        return result
 
     def _emit(self, tool, idx, ctx, result, outcome, call_id, traceparent) -> None:
         span = self.tracer.build_span(

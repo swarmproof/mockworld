@@ -6,11 +6,13 @@ fetches, verifies the sha256, runs a safety gate, and installs into
 ``~/.mockworld/mocks``. The index and sources can be local paths, ``file://``, or
 ``https://`` — so everything is testable offline (NFR-OFFLINE-1).
 
-Provenance & safety (REQ-REG-3, NFR-SEC-1): installs verify a content checksum
-and statically reject handler code that reaches for the network or subprocesses
-— the lightweight "sandboxed by default" stance for untrusted community code,
-ahead of full subprocess/WASM isolation (ADR-7, v0.2b). Locally-authored mocks
-stay trusted.
+Provenance & safety (REQ-REG-3, NFR-SEC-1): installs verify a content checksum and
+statically reject handler code that reaches for the network or subprocesses. At
+install *and* run time, registry-installed handler code is never imported in this
+process — it is imported and executed inside a hardened subprocess (see
+:mod:`mockworld.sandbox`; network/subprocess/exec/ctypes/file-write neutered, plus
+CPU/memory limits). Locally-authored mocks stay trusted. This is defense-in-depth,
+not a formal guarantee; for hard isolation, run mockworld in a container.
 """
 
 from __future__ import annotations
@@ -128,7 +130,8 @@ class RegistryClient:
                         f"got {actual[:12]}…"
                     )
 
-            findings = validate_mock(str(staged))
+            # Static-only: never import the untrusted module in this process.
+            findings = validate_mock(str(staged), import_handlers=False)
             errors = [f.message for f in findings if f.level == "error"]
             if errors:
                 raise RegistryError(f"{entry.name} failed validation: {errors}")
