@@ -3,6 +3,13 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.2.2] — 2026-09-04
+
+### Changed
+- Rewrote the README to open-source standard: badges (PyPI/CI/Python/license), a
+  table of contents, a built-in-mocks table, a project-structure map, and a
+  documentation index. No code changes — refreshes the PyPI project page.
+
 ## [0.2.1] — 2026-09-02
 
 ### Added
