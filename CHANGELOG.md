@@ -3,7 +3,7 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
-## [Unreleased]
+## [0.3.1] — 2026-09-04
 
 ### Fixed
 - `when:` fault conditions can now use safe builtins (`len`, `min`, `max`, …).
