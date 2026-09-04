@@ -202,7 +202,7 @@ python -m pytest -q
 
 ## Part of the Swarm Proof toolkit
 
-*Trust infrastructure for the agent economy — seven projects, one thesis.*
+mockworld is one of the Swarm Proof projects for building and testing reliable agents:
 
 | Project | What it does |
 |---------|--------------|
