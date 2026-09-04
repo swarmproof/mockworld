@@ -1,15 +1,41 @@
+<div align="center">
+
 # mockworld
 
 ### A synthetic internet for agents
 
-> The localhost for the agent economy. Spin up high-fidelity fake services — a fake Stripe, a fake Gmail, a fake exchange, a fake CRM — as instant MCP servers, so you can build and test agents without touching production, leaking data, or paying for real API calls.
+**The localhost for the agent economy.** Spin up high-fidelity fake services — a fake Stripe, a fake Gmail, a fake exchange, a fake CRM — as instant [MCP](https://modelcontextprotocol.io) servers, so you can build and test agents without touching production, leaking data, or paying for real API calls.
 
-<!-- TODO: demo GIF — an agent charging a fake card and getting a realistic decline -->
-<p align="center"><em>▶ demo GIF coming — an agent transacts against a fake Stripe and hits a realistic decline</em></p>
+[![PyPI](https://img.shields.io/pypi/v/mockworld-mcp.svg)](https://pypi.org/project/mockworld-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/mockworld-mcp.svg)](https://pypi.org/project/mockworld-mcp/)
+[![CI](https://github.com/swarmproof/mockworld/actions/workflows/ci.yml/badge.svg)](https://github.com/swarmproof/mockworld/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
 
-> **Status:** 🟢 v0.1 engine + 5 built-in mocks implemented (deterministic core, MCP stdio+HTTP, fault injection, control plane, stampede `Target`). Companion to [stampede](https://github.com/swarmproof/stampede).
+</div>
+
+```bash
+pip install mockworld-mcp
+mockworld run mock:payments      # a stateful fake Stripe as an MCP server, one command
+```
+
+> **Status:** released — `mockworld-mcp` on PyPI. Deterministic engine, 6 built-in mocks, MCP stdio + HTTP, fault injection, control plane, registry, world composition, record-mode, snapshots, and a stampede `Target`. Companion to [stampede](https://github.com/swarmproof/stampede).
 
 ---
+
+## Contents
+
+- [Why](#why)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Use it in your tests](#use-it-in-your-tests)
+- [Built-in mocks](#built-in-mocks)
+- [Author & share mocks](#author--share-mocks)
+- [Compose, record, and simulate](#compose-record-and-simulate)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Part of the Swarm Proof toolkit](#part-of-the-swarm-proof-toolkit)
 
 ## Why
 
@@ -20,25 +46,31 @@ The 2026 crop of agent sandboxes (Veris Sandbox, AWS ToolSimulator) fills that g
 mockworld takes the opposite bet — **deterministic, MCP-native, open:**
 
 - **Deterministic & LLM-free.** A seed fully determines state, IDs, timing, and every injected fault. `reset --seed 42` produces the *same* decline, every time, across 50 parallel CI workers. No LLM in the hot path, ever — that's the moat, not a footnote.
-- **MCP-native & agent-realistic.** Services are real MCP servers with agent-grade tool descriptions, stateful behavior, and *business-logic* fault semantics (declines, insufficient funds, rate limits, disputes) — the things agents actually stress. (Postman/WireMock are built for human-driven HTTP testing; they don't speak MCP and can't model business state.)
+- **MCP-native & agent-realistic.** Services are real MCP servers with agent-grade tool descriptions, stateful behavior, and *business-logic* fault semantics (declines, insufficient funds, rate limits, disputes) — the things agents actually stress. Postman/WireMock are built for human-driven HTTP testing; they don't speak MCP and can't model business state.
 - **Open & self-hostable.** `pip install`, runs on your laptop, offline, free, Apache-2.0 — not a hosted SaaS.
+
+## Install
+
+```bash
+pip install mockworld-mcp
+```
+
+Requires Python 3.11+. The distribution is named `mockworld-mcp`; the import package and CLI are simply `mockworld`.
 
 ## Quickstart
 
 ```bash
-pip install mockworld-mcp             # ships as mockworld-mcp; `import mockworld` and the `mockworld` CLI are unchanged
-
-mockworld list                        # the 5 built-in mocks
-mockworld run mock:payments           # a stateful fake Stripe as an MCP (stdio) server
+mockworld list                        # the built-in mocks
+mockworld run mock:payments           # a stateful fake Stripe over stdio (MCP)
 mockworld run mock:payments --transport http --port 8931   # Streamable HTTP + control plane
 mockworld run mock:payments --seed 42 --faults hostile     # deterministic + adversarial
 mockworld inspect mock:crm            # tools, faults, and state shape without running
 mockworld demo mock:payments          # prove determinism: same seed → identical transcript
 ```
 
-Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) swarm) at it. `reset --seed 42` returns a running server to a byte-identical world, every time.
+Point any MCP client (or a [stampede](https://github.com/swarmproof/stampede) swarm) at it. `mockworld reset --seed 42` returns a running server to a byte-identical world, every time.
 
-### In your test suite
+## Use it in your tests
 
 Installing mockworld gives every `pytest` run a `mockworld` fixture — a deterministic fake Stripe in two lines:
 
@@ -50,62 +82,123 @@ def test_agent_handles_a_decline(mockworld):
     assert result.retried_sanely
 ```
 
-### Author your own
+Seeded and in-memory, so each test is deterministic and isolated — 50 parallel workers never collide.
+
+## Built-in mocks
+
+| Mock | Shape | What it exercises |
+|------|-------|-------------------|
+| `mock:payments` | Stripe | charges, refunds, idempotency; `refund ≤ captured`, balance conservation |
+| `mock:crm` | Records | the delete-vs-archive **misuse map**; audit log; optimistic locking |
+| `mock:exchange` | CEX | balances, orders, fills, **slippage**; balance conservation |
+| `mock:email` | Gmail/SMTP | send/read/search; **sticky bounces**; threading; rate limits |
+| `mock:files` | S3 | read-after-write consistency; versioning; slow-download latency |
+| `mock:hello` | — | the smallest complete example, for learning the schema |
+
+Each enforces real stateful invariants and injects seeded, business-shaped faults. A declarative `mock.yaml` (plus an optional Python handler) defines a mock in minutes.
+
+## Author & share mocks
 
 ```bash
-mockworld new mystripe        # a runnable, clean-linting mock to grow from
+mockworld new mystripe                # scaffold a runnable, clean-linting mock to grow from
+mockworld validate ./mystripe         # schema, handler ABI, determinism smells, description quality
+mockworld pack ./mystripe             # print a registry entry (checksum + metadata) to publish
+
+mockworld search weather              # the public registry
+mockworld add mock:weather            # install a community mock — checksum-verified + safety-gated
 ```
 
-See [`docs/AUTHORING.md`](./docs/AUTHORING.md) for the schema and handler ABI, and [`mock:hello`](./src/mockworld/mocks/hello/) for the smallest complete example.
+The registry ([swarmproof/mockworld-registry](https://github.com/swarmproof/mockworld-registry)) is an index-as-repo: contribute a mock by opening a PR with a folder and an index entry. See [`docs/AUTHORING.md`](./docs/AUTHORING.md) and [`mock:hello`](./src/mockworld/mocks/hello/).
 
-## What's inside (v0.1 built-ins)
-
-`mock:payments` (Stripe-shaped, the marquee) · `mock:email` (Gmail/SMTP) · `mock:exchange` (balances, orders, fills, slippage) · `mock:crm` (records — powers the "delete vs archive" misuse demo) · `mock:files` (S3-shaped). A declarative schema (`mock.yaml` + an optional Python handler) lets you author new mocks in minutes.
-
-## Compose, record, and share (v0.2)
+## Compose, record, and simulate
 
 ```bash
 # Compose several mocks into one world with a shared customer namespace:
 mockworld run world:examples/worlds/ecommerce.yaml --seed 42
-#   → payments + crm + email all see the same 50 customers; charge → update CRM → email, consistently.
+#   → payments + crm + email share the same 50 customers: charge → update CRM → email, consistently.
 
 # Scaffold a runnable mock from an OpenAPI spec — or from captured traffic (HAR):
 mockworld record --openapi ./petstore.yaml --out ./petstore_mock
 mockworld record --har ./session.har --name orders --out ./orders_mock
-#   → standard REST paths become declarative CRUD; custom actions get handler stubs to fill in.
 
-# Install a community mock from a registry (the network-effect moat):
-mockworld search weather
-mockworld add mock:weather            # checksum-verified + safety-gated
-mockworld pack ./my_mock              # print a registry entry (checksum + metadata) to publish
-```
-
-## Swarms, snapshots, and drift (v0.3)
-
-```bash
-# Point a deterministic scripted-persona swarm at a mock and get an Agent Readiness Report:
+# Run a scripted-persona swarm → an Agent Readiness Report (the misuse map):
 mockworld swarm mock:crm --agents 200 --goal hide --seed 42
-#   ⚠ misuse map: 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
-
-# A/B how tool-description quality drives misuse (same swarm, vaguer descriptions):
+#   ⚠ 32.5% of agents destroyed data they meant to hide (delete vs archive) — reproducible.
 mockworld swarm mock:crm --agents 200 --seed 42 --descriptions ambiguous
-#   ⚠ misuse map: 45.5% — worse descriptions, more destroyed data.
+#   ⚠ 45.5% — vaguer tool descriptions, more destroyed data. Legibility is a measurable property.
 
 # Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
 mockworld snapshot save mock:payments bug123.mw.json --seed 7
 
-# Govern fidelity drift against a real provider's contract:
+# Govern fidelity drift against a real provider's OpenAPI contract:
 mockworld verify mock:payments --against ./stripe-openapi.yaml
+
+# Export target-side traces (OTel GenAI profile) to any OTLP collector:
+mockworld run mock:payments --otlp http://localhost:4318
 ```
 
-The joint chaos demo — a transport interruption *and* a business decline at once, with
-the side-effect firing exactly once — runs standalone:
+The joint chaos demo — a transport interruption *and* a business decline at once, with the side-effect firing exactly once — runs standalone:
 
 ```bash
 python examples/demos/exactly_once_under_chaos.py
 ```
 
-See [`SPEC.md`](./SPEC.md), [`ROADMAP.md`](./ROADMAP.md), and [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+## Project structure
+
+```
+mockworld/
+├── src/mockworld/
+│   ├── determinism.py       # the seeded entropy funnel (clock/ids/rng/fault-dice)
+│   ├── state.py             # copy-on-write state store (memory / sqlite)
+│   ├── session.py           # per-session isolation
+│   ├── schema.py            # the mock.yaml pydantic models
+│   ├── faults.py            # business-logic fault injector
+│   ├── dispatch.py          # declarative CRUD + Python handler ABI
+│   ├── engine.py            # the transport-free call path (start here)
+│   ├── server.py            # MCP exposure: stdio + Streamable HTTP + resources
+│   ├── control.py           # control plane + stampede Target protocol
+│   ├── trace.py             # OTel-GenAI-profile spans + NDJSON + OTLP export
+│   ├── registry.py          # add / search / pack (index-as-repo)
+│   ├── world.py             # compose mocks with a shared identity namespace
+│   ├── record.py            # scaffold a mock from OpenAPI / HAR
+│   ├── snapshot.py          # portable scenario snapshots (+ migration)
+│   ├── swarm.py             # persona swarm → Agent Readiness Report
+│   ├── verify.py            # contract-drift check vs OpenAPI
+│   ├── cli.py               # the mockworld command
+│   └── mocks/               # payments · crm · exchange · email · files · hello
+├── tests/                   # 86 tests mapping to the TEST-PLAN gates
+├── docs/                    # ARCHITECTURE · PRD · AUTHORING · RELEASING · TEST-PLAN · …
+├── examples/                # worlds/ · demos/ · registry/
+└── .github/workflows/       # ci.yml · release.yml
+```
+
+The engine is deliberately free of any MCP dependency — `server.py`, `control.py`, and `cli.py` are thin adapters over it. That keeps the determinism and isolation tests fast and pure.
+
+## Documentation
+
+| Doc | What it covers |
+|-----|----------------|
+| [`docs/AUTHORING.md`](./docs/AUTHORING.md) | Write a mock: schema, handler ABI, faults, publishing |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Engine design, session isolation, the stampede contract, ADRs |
+| [`docs/PRD.md`](./docs/PRD.md) | Requirements (the REQ-IDs referenced across the docs) |
+| [`docs/TEST-PLAN.md`](./docs/TEST-PLAN.md) | Test strategy, E2E scenarios, and CI gates |
+| [`docs/RELEASING.md`](./docs/RELEASING.md) | How releases are cut and published to PyPI |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Release history |
+| [`SPEC.md`](./SPEC.md) · [`ROADMAP.md`](./ROADMAP.md) | The original spec and roadmap |
+
+## Contributing
+
+Contributions welcome — bug reports, new mocks, and features. Please read [`CONTRIBUTING.md`](./CONTRIBUTING.md). The core principles: **determinism is non-negotiable** (all entropy comes from the seeded `ctx`; the validator enforces it), faults are business-logic only, and every mock ships a `fidelity.md`.
+
+```bash
+git clone https://github.com/swarmproof/mockworld && cd mockworld
+uv venv && uv pip install -e ".[dev]"
+python -m pytest -q
+```
+
+## License
+
+[Apache-2.0](./LICENSE). Mocks are LLM-free — deterministic services by design. Citable via [`CITATION.cff`](./CITATION.cff).
 
 ## Part of the Swarm Proof toolkit
 
@@ -120,7 +213,3 @@ See [`SPEC.md`](./SPEC.md), [`ROADMAP.md`](./ROADMAP.md), and [`docs/ARCHITECTUR
 | [exactly-once](https://github.com/swarmproof/exactly-once) | Idempotency middleware so agent side-effects fire once |
 | [agent-postmortems](https://github.com/swarmproof/agent-postmortems) | A structured incident database + post-mortem standard for agent failures |
 | [awesome-agent-reliability](https://github.com/swarmproof/awesome-agent-reliability) | The curated map of the field |
-
-## License
-
-[Apache-2.0](./LICENSE). Mocks are LLM-free — deterministic services by design. Citable via [`CITATION.cff`](./CITATION.cff).
