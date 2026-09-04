@@ -57,6 +57,7 @@ class LoadedMock:
     handlers: ModuleType | None
     seed_module: ModuleType | None
     path: Path
+    trusted: bool = True  # False → handler code is sandboxed, never imported here
 
     def generate_base(
         self, dctx: DeterministicContext, shared: dict[str, Any] | None = None
@@ -138,7 +139,16 @@ def resolve_source(source: str) -> Path:
     return Path(source)
 
 
-def load_mock(source: str) -> LoadedMock:
+def is_untrusted_path(path: Path) -> bool:
+    """A mock is untrusted iff it lives under the registry install dir (ADR-7)."""
+    try:
+        path.resolve().relative_to(installed_dir().resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def load_mock(source: str, trusted: bool | None = None) -> LoadedMock:
     path = resolve_source(source)
     if not path.is_dir():
         raise FileNotFoundError(f"mock directory not found: {path}")
@@ -153,11 +163,19 @@ def load_mock(source: str) -> LoadedMock:
     for name, template in definition.errors.items():
         register_error(name, template)
 
-    safe = definition.name.replace("-", "_")
-    handlers = _import_module(path / "handlers.py", f"mockworld_mock_{safe}_handlers")
-    seed_module = _import_module(path / "seed.py", f"mockworld_mock_{safe}_seed")
+    if trusted is None:
+        trusted = not is_untrusted_path(path)
 
-    return LoadedMock(definition=definition, handlers=handlers, seed_module=seed_module, path=path)
+    # Untrusted handler/seed code is NEVER imported in this process — the sandbox
+    # worker imports it inside a hardened subprocess (REQ-REG-3).
+    handlers = seed_module = None
+    if trusted:
+        safe = definition.name.replace("-", "_")
+        handlers = _import_module(path / "handlers.py", f"mockworld_mock_{safe}_handlers")
+        seed_module = _import_module(path / "seed.py", f"mockworld_mock_{safe}_seed")
+
+    return LoadedMock(definition=definition, handlers=handlers, seed_module=seed_module,
+                      path=path, trusted=trusted)
 
 
 def _list_mocks_in(directory: Path) -> list[str]:

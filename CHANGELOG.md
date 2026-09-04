@@ -3,6 +3,20 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.3.0] — 2026-09-04
+
+### Added
+- **Runtime sandbox for untrusted registry mocks** (ADR-7 v0.2b, REQ-REG-3).
+  Registry-installed handler/seed code is no longer imported in the host process
+  at any point — not at `mockworld add`, not at load, not per call. It runs in a
+  hardened subprocess with the network, subprocess/exec, ctypes, and file writes
+  neutered before any untrusted import, plus CPU/memory limits. The parent keeps
+  ownership of state and entropy, so a sandboxed mock is byte-identical to a
+  trusted one. Locally-authored mocks stay trusted. Defense-in-depth, not a formal
+  guarantee — for hard isolation, run mockworld in a container.
+- `mockworld validate --import-handlers=false` path (used by `add`) runs static
+  checks only, so validation itself never executes untrusted code.
+
 ## [0.2.3] — 2026-09-04
 
 ### Changed

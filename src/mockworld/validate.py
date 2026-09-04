@@ -45,7 +45,10 @@ def _scan_entropy(path: Path, findings: list[Finding]) -> None:
             findings.append(Finding("error", f"{path.name}: entropy smell — {detail}"))
 
 
-def validate_mock(source: str) -> list[Finding]:
+def validate_mock(source: str, import_handlers: bool = True) -> list[Finding]:
+    """Lint a mock. With ``import_handlers=False`` (used for untrusted registry
+    code at install time), handler modules are never imported — only static checks
+    run, so validation itself can't execute untrusted code."""
     findings: list[Finding] = []
     path = resolve_source(source)
 
@@ -54,21 +57,22 @@ def validate_mock(source: str) -> list[Finding]:
     if not (path / "mock.yaml").exists():
         return [Finding("error", f"missing mock.yaml in {path}")]
 
-    # 1. Schema validity + load.
+    # 1. Schema validity + load (no import when import_handlers is False).
     try:
-        loaded = load_mock(source)
+        loaded = load_mock(source, trusted=import_handlers)
     except Exception as exc:  # pydantic / yaml / import errors
         return [Finding("error", f"failed to load: {type(exc).__name__}: {exc}")]
     definition: MockDef = loaded.definition
 
-    # 2. Python handlers exist with the right signature.
-    for tool in definition.tools:
-        if not tool.is_crud:
-            fn = getattr(loaded.handlers, tool.handler_name or "", None) if loaded.handlers else None
-            if fn is None:
-                findings.append(Finding("error", f"tool {tool.name!r}: handler {tool.handler_name!r} not found"))
-            elif fn.__code__.co_argcount != 2:
-                findings.append(Finding("error", f"handler {tool.handler_name!r} must take (ctx, params)"))
+    # 2. Python handlers exist with the right signature (requires import).
+    if import_handlers:
+        for tool in definition.tools:
+            if not tool.is_crud:
+                fn = getattr(loaded.handlers, tool.handler_name or "", None) if loaded.handlers else None
+                if fn is None:
+                    findings.append(Finding("error", f"tool {tool.name!r}: handler {tool.handler_name!r} not found"))
+                elif fn.__code__.co_argcount != 2:
+                    findings.append(Finding("error", f"handler {tool.handler_name!r} must take (ctx, params)"))
 
     # 3. Entropy smells in handler/seed source.
     _scan_entropy(path / "handlers.py", findings)
