@@ -48,12 +48,14 @@ def test_int4_span_shape():
     assert a["gen_ai.tool.name"] == "create_charge"
     assert "gen_ai.tool.call.id" in a
     assert a["swarmproof.span.side"] == "target"
+    assert a["swarmproof.run.seed"] == 7
     assert span.resource["service.name"] == "mockworld.payments"
     assert not any(k.startswith("gen_ai.usage") for k in a)  # tokens are the agent side's concern
 
-    faulted = [s for s in e.tracer.spans if s.attributes.get("swarmproof.fault.injected")]
+    # fault.kind (shared schema): present only when a semantic fault was applied.
+    faulted = [s for s in e.tracer.spans if s.attributes.get("swarmproof.fault.kind")]
     assert faulted, "expected some faults under hostile"
-    assert faulted[0].attributes["swarmproof.fault.source"] == "mockworld"
+    assert faulted[0].attributes["swarmproof.fault.kind"] in {"card_declined", "rate_limited"}
 
 
 # --- INT-5: trace nesting via propagated traceparent -------------------------

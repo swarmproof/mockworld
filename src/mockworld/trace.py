@@ -157,6 +157,7 @@ class TraceEmitter:
         clock_epoch_s: int,
         latency_ms: int,
         run_id: str,
+        run_seed: int,
         traceparent: str | None,
         fault_injected: bool,
         fault_type: str | None,
@@ -180,13 +181,13 @@ class TraceEmitter:
             "gen_ai.tool.call.id": call_id,   # echoed join key
             "swarmproof.span.side": "target",
             "swarmproof.run.id": run_id,       # span attribute, not resource (many runs / collector)
+            "swarmproof.run.seed": run_seed,
         }
         if fault_injected:
-            attrs["swarmproof.fault.injected"] = True
-            attrs["swarmproof.fault.type"] = fault_type
-            attrs["swarmproof.fault.source"] = "mockworld"
-            if fault_error:
-                attrs["swarmproof.fault.error"] = fault_error
+            # The shared schema (agent_reliability_core.trace) names this
+            # swarmproof.fault.kind — its presence means a semantic fault was
+            # applied; the value is the specific fault (e.g. "card_declined").
+            attrs["swarmproof.fault.kind"] = fault_error or fault_type
 
         span = Span(
             name=f"execute_tool {tool_name}",

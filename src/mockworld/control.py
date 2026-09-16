@@ -97,12 +97,9 @@ class MockworldTarget:
         fault = None
         if result.meta.get("latency_ms") or (not result.success):
             span = self.engine.tracer.spans[-1]
-            if span.attributes.get("swarmproof.fault.injected"):
-                fault = {
-                    "type": span.attributes.get("swarmproof.fault.type"),
-                    "error": span.attributes.get("swarmproof.fault.error"),
-                    "source": "mockworld",
-                }
+            kind = span.attributes.get("swarmproof.fault.kind")
+            if kind:
+                fault = {"kind": kind, "source": "mockworld"}
         if result.success:
             return ToolResult(ok=True, data=result.data, fault=fault)
         return ToolResult(ok=False, error=result.err.to_payload(), fault=fault)

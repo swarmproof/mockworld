@@ -25,7 +25,7 @@ def test_flt2_conditional_fault_fires_on_state():
     # amount > balance → insufficient_funds via the conditional (when:) fault
     r = e.call("create_charge", {"customer_id": cust["id"], "amount": 5000})
     assert r.err.code == "insufficient_funds"
-    assert e.tracer.spans[-1].attributes.get("swarmproof.fault.injected") is True
+    assert e.tracer.spans[-1].attributes.get("swarmproof.fault.kind") == "insufficient_funds"
     # amount <= balance → no conditional fault
     r2 = e.call("create_charge", {"customer_id": cust["id"], "amount": 500})
     assert r2.success
@@ -105,12 +105,15 @@ def test_when_expression_supports_safe_builtins():
 
 def test_flt9_layer_boundary_only_business_faults():
     """mockworld never injects transport faults (kills/socket timeouts) — ADR-6."""
-    business = {"error_response", "rate_limited", "latency", "partial_outage", "malformed_response"}
+    # fault.kind carries the specific business fault name — never a transport fault.
+    business = {"card_declined", "insufficient_funds", "rate_limited", "dispute",
+                "partial_outage", "malformed_response"}
     e = payments_engine(seed=3, faults="hostile")
     cid = seeded_customer(e)
     for _ in range(50):
         e.call("create_charge", {"customer_id": cid, "amount": 100})
-    for span in e.tracer.spans:
-        if span.attributes.get("swarmproof.fault.injected"):
-            assert span.attributes["swarmproof.fault.type"] in business
-            assert span.attributes["swarmproof.fault.source"] == "mockworld"
+    faulted = [s for s in e.tracer.spans if s.attributes.get("swarmproof.fault.kind")]
+    assert faulted, "expected some faults under hostile"
+    for span in faulted:
+        assert span.attributes["swarmproof.fault.kind"] in business
+        assert span.attributes["swarmproof.span.side"] == "target"
