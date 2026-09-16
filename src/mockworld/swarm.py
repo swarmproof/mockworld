@@ -149,8 +149,9 @@ def _tally(engine, result, outcomes: Counter, faults: Counter) -> None:
     span = getattr(engine, "tracer", None)
     if span is not None and span.spans:
         attrs = span.spans[-1].attributes
-        if attrs.get("swarmproof.fault.injected"):
-            faults[attrs.get("swarmproof.fault.type", "unknown")] += 1
+        kind = attrs.get("swarmproof.fault.kind")
+        if kind:
+            faults[kind] += 1
 
 
 def format_report(report: AgentReadinessReport) -> str:

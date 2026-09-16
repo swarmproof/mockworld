@@ -3,6 +3,15 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.3.2] — 2026-09-16
+
+### Changed
+- Trace: target-side spans emit `swarmproof.fault.kind` (the specific fault, e.g.
+  `card_declined`) and `swarmproof.run.seed`, matching the shared trace schema
+  (`agent_reliability_core.trace`) so mockworld spans join cleanly in a stampede
+  report. Replaces the prior `swarmproof.fault.{injected,type,source,error}`
+  attributes; absence of `fault.kind` now means no fault was applied.
+
 ## [0.3.1] — 2026-09-04
 
 ### Fixed

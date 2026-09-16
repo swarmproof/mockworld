@@ -224,6 +224,7 @@ class Engine:
             clock_epoch_s=ctx.clock.now(),
             latency_ms=outcome.latency_ms,
             run_id=self.run_id,
+            run_seed=self.seed,
             traceparent=traceparent,
             fault_injected=outcome.injected,
             fault_type=outcome.fault_type,
