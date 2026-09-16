@@ -3,6 +3,11 @@
 *Vision, goals, personas, functional & non-functional requirements, feature tiers, mock-library scope, success metrics.*
 *Companion to `SPEC.md` and `docs/RESEARCH.md`. Author: mockworld architect. Last updated: 2026-07-13.*
 
+> **Status:** the P0/P1 requirements below are implemented and released as
+> `mockworld-mcp`; several P2/P3 items (registry, record-mode, snapshots, sandbox)
+> shipped too. `../ROADMAP.md` and `../CHANGELOG.md` track current state; REQ-IDs
+> remain the stable reference used across the docs.
+
 > **⊕ Beyond original spec** marks requirements that extend the v1.0 `SPEC.md`.
 > Requirement IDs are stable and referenced by `ARCHITECTURE.md`, `DELIVERY-PLAN.md`, and `TEST-PLAN.md`.
 

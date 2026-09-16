@@ -2,6 +2,11 @@
 ### A synthetic internet for agents
 *Companion to stampede · v1.0 spec*
 
+> **Status:** this is the original design spec; it has been implemented and
+> released as [`mockworld-mcp`](https://pypi.org/project/mockworld-mcp/). For
+> current state see [`ROADMAP.md`](./ROADMAP.md) and [`CHANGELOG.md`](./CHANGELOG.md).
+> The roadmap in §3 below describes the original plan (v0.1–v0.3), all now shipped.
+
 > **mockworld** — the localhost for the agent economy. Spin up high-fidelity fake services — a fake Stripe, a fake Gmail, a fake exchange, a fake CRM — as instant MCP servers, so you can build and test agents without touching production, leaking data, or paying for real API calls.
 
 ---
