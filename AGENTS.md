@@ -17,7 +17,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - `trace.py` — OTel-GenAI-profile spans. `server.py` — MCP stdio+HTTP adapter. `control.py` — control plane + stampede `Target`. `cli.py` — commands. `validate.py` — the entropy linter.
 - `registry.py` (v0.2) — `add`/`search`, checksum + safety gate. `world.py` (v0.2) — compose mocks with a shared identity pool. `record.py` (v0.2) — OpenAPI → scaffold.
 - `snapshot.py` (v0.3) — portable `.mw.json` artifacts + migration. `swarm.py` (v0.3) — persona swarm → Agent Readiness Report (misuse map). `verify.py` (v0.3) — contract-drift vs OpenAPI.
-- `mocks/<name>/` — the five built-ins (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
+- `mocks/<name>/` — the six built-ins: payments, crm, exchange, email, files, hello (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
 
 CLI: `run` (stdio/http, also `run world:<file>`), `list`, `inspect`, `validate`, `reset`, `demo`, `add`, `search`, `pack`, `record`. The engine is deliberately MCP-free; server/control/CLI are thin adapters (keeps determinism/isolation tests pure).
 
@@ -39,7 +39,7 @@ Doc conventions: `⊕ Beyond original spec` marks design that extends `SPEC.md`;
 3. **Declarative-first, Python escape hatch** (ADR-5). A mock is a directory: `mock.yaml` (authoritative), optional `handlers.py` (ABI: `handler(ctx, params) -> Result`, pure w.r.t. injected entropy), optional `seed.py`, and `fidelity.md` documenting what it does/doesn't model. Simple CRUD needs no code.
 4. **Fault split with stampede** (ADR-6): mockworld owns *business-logic* faults only (`card_declined`, `insufficient_funds`, `rate_limited`, latency, partial outage) as first-class objects with realistic error bodies. Transport chaos (connection kills, socket timeouts, malformed frames) belongs to stampede/Toxiproxy — never implement it here. When a `MockworldTarget` is in use, stampede suppresses its transport rate_limit in favor of mockworld's semantic 429.
 5. **State store**: `MemoryStore` default, `SQLiteStore` for persistence/snapshots, behind one `StateStore` API (ADR-3) — both must pass a shared conformance suite.
-6. **Consume siblings' primitives, never redefine them.** Tracing uses stampede's trace-format, which is an **OpenTelemetry GenAI profile** — mockworld emits standard `gen_ai.*` attributes plus the shared `swarmproof.*` extension (`swarmproof.span.side="target"`, `swarmproof.fault.{type,injected,source}`). No `mockworld.*` namespace. Target spans are `span.kind=SERVER`, parented to stampede's `execute_tool` CLIENT span, joined on echoed `gen_ai.tool.call.id`; `traceparent` is read from HTTP headers or MCP `_meta.traceparent` on stdio.
+6. **Consume siblings' primitives, never redefine them.** Tracing uses stampede's trace-format, which is an **OpenTelemetry GenAI profile** — mockworld emits standard `gen_ai.*` attributes plus the shared `swarmproof.*` extension (`swarmproof.span.side="target"`, `swarmproof.run.seed`, and `swarmproof.fault.kind` when a fault is applied). No `mockworld.*` namespace. Target spans are `span.kind=SERVER`, parented to stampede's `execute_tool` CLIENT span, joined on echoed `gen_ai.tool.call.id`; `traceparent` is read from HTTP headers or MCP `_meta.traceparent` on stdio.
 
 ### The stampede contract (confirmed 2026-07-13, ARCHITECTURE §7)
 

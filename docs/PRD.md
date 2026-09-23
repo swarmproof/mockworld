@@ -17,7 +17,7 @@
 
 > **mockworld is the localhost for the agent economy** — a deterministic, LLM-free, MCP-native sandbox of high-fidelity fake services that agents can build and test against without touching production, leaking data, or spending money. Point your agent (or a stampede swarm) at a mockworld world and it can charge cards, send email, place trades, and mutate records against realistic, stateful services that reset to a known seed and inject realistic adversity — reproducibly, offline, and free.
 
-The product is judged on one experience: **`pip install mockworld && mockworld run mock:payments` → an agent charges a fake card and hits a realistic decline, and the same seed produces the same decline every time.**
+The product is judged on one experience: **`pip install mockworld-mcp && mockworld run mock:payments` → an agent charges a fake card and hits a realistic decline, and the same seed produces the same decline every time.**
 
 ---
 
@@ -141,7 +141,7 @@ Priority: **P0** = v0.1 must-ship · **P1** = v0.1 if time / early v0.2 · **P2*
 ### 4.7 Observability / trace (`REQ-OBS-*`)
 | ID | Requirement | Priority |
 |----|-------------|:--------:|
-| REQ-OBS-1 | Every tool call emits a **target-side span** in trace-format (an **OTel GenAI profile**): `span.kind=SERVER`, `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name/type`, `gen_ai.tool.call.id` (echoed join key), `swarmproof.span.side=target`, and fault attrs `swarmproof.fault.{type,injected,source}`. Does **not** set `gen_ai.usage.*`. Resource `service.name="mockworld.<mock>"`. | P0 |
+| REQ-OBS-1 | Every tool call emits a **target-side span** in trace-format (an **OTel GenAI profile**): `span.kind=SERVER`, `gen_ai.operation.name=execute_tool`, `gen_ai.tool.name/type`, `gen_ai.tool.call.id` (echoed join key), `swarmproof.span.side=target`, `swarmproof.run.seed`, and `swarmproof.fault.kind` (present only on faulted calls). Does **not** set `gen_ai.usage.*`. Resource `service.name="mockworld.<mock>"`. | P0 |
 | REQ-OBS-2 | Spans nest under the caller's `execute_tool` CLIENT span (same `trace_id`); mockworld reads W3C `traceparent`/`tracestate` from HTTP headers and from MCP `_meta.traceparent` on stdio. | P0 |
 | REQ-OBS-3 | A local **NDJSON trace sink** by default; optional OTLP export. | P1 |
 | REQ-OBS-4 | `mockworld run --record-trace <file>` captures a full session trace for replay/inspection. | P1 |
@@ -190,7 +190,7 @@ Priority: **P0** = v0.1 must-ship · **P1** = v0.1 if time / early v0.2 · **P2*
 | NFR-PERF-3 | **Performance** | Throughput on a laptop core. | ≥ 1000 tool-calls/s |
 | NFR-DX-1 | **Developer experience** | Time-to-first-successful-tool-call for a new user. | ≤ 2 min |
 | NFR-DX-2 | **DX** | Authoring a trivial CRUD mock (no Python). | ≤ 15 min |
-| NFR-DEP-1 | **Footprint** | Core install (no heavy deps beyond MCP SDK + FastAPI + pydantic). | `pip install mockworld` clean |
+| NFR-DEP-1 | **Footprint** | Core install (no heavy deps beyond MCP SDK + FastAPI + pydantic). | `pip install mockworld-mcp` clean |
 | NFR-OFFLINE-1 | **Offline** | Full functionality with no network / no credentials / no LLM. | 100% |
 | NFR-SEC-1 | **Security** | Local handler code is trusted; registry handler code is sandboxed by default. | v0.2 |
 | NFR-COMPAT-1 | **Compatibility** | Python 3.11+; works under stdio and Streamable HTTP MCP clients. | — |

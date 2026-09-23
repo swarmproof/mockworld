@@ -35,6 +35,6 @@ The workflow then:
 ## Verifying
 
 ```bash
-pip install mockworld-mcp==0.2.0
-mockworld demo mock:payments   # identical: True
+pip install mockworld-mcp        # or pin ==<the version you just tagged>
+mockworld demo mock:payments     # identical: True
 ```

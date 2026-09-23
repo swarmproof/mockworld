@@ -173,7 +173,10 @@ def record(openapi, har, name, out_dir) -> None:
 @click.option("--otlp", "otlp", default=None, help="OTLP/HTTP collector base URL (spans POSTed to /v1/traces).")
 @click.option("--descriptions", type=click.Choice(["clear", "ambiguous"]), default="clear",
               help="Serve clear or intentionally-ambiguous tool descriptions (misuse-map fuel).")
-def run(source, transport, host, port, seed, faults, store, record_trace, otlp, descriptions) -> None:
+@click.option("--snapshot", "snapshot_path", type=click.Path(exists=True), default=None,
+              help="Boot with a saved .mw.json snapshot restored (reproduce a bug).")
+def run(source, transport, host, port, seed, faults, store, record_trace, otlp, descriptions,
+        snapshot_path) -> None:
     from .server import MockServer
 
     if source.startswith("world:"):
@@ -187,6 +190,11 @@ def run(source, transport, host, port, seed, faults, store, record_trace, otlp, 
             source, seed=seed, faults=faults, store=store, run_id=f"cli-{seed}",
             trace_sink=trace_sink, otlp_endpoint=otlp, descriptions=descriptions,
         )
+
+    if snapshot_path:
+        from . import snapshot as snap
+
+        snap.load(engine, snapshot_path)  # restore into the default session
 
     server = MockServer(engine)
     d = engine.definition

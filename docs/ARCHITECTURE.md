@@ -5,6 +5,12 @@
 
 > **⊕ Beyond original spec** marks design that extends v1.0 `SPEC.md`. REQ-IDs reference `docs/PRD.md`.
 
+> **Status:** this design is implemented and released as `mockworld-mcp`. Two areas
+> drifted from the sketch and carry inline notes: the trace attributes (now
+> `swarmproof.fault.kind`) and the stampede contract in §7 (the `MockworldTarget`
+> adapter ships in the **stampede** repo; the end-to-end integration is done, but
+> §7's "confirmed" framing predates it). See `../ROADMAP.md` and `../CHANGELOG.md`.
+
 ---
 
 ## 1. System overview
@@ -271,7 +277,14 @@ All nondeterminism is injected, never ambient:
 
 ## 7. The stampede ↔ mockworld integration contract ⊕
 
-> This is the deep-integration contract (ROADMAP v0.3). Proposed to the stampede architect; §7.4 tracks confirmation.
+> **Status (implemented):** this section is the original design contract. The
+> integration now ships and differs in two ways from the sketch below: (1) the
+> `MockworldTarget` adapter lives in the **stampede** repo (`stampede.targets.mockworld`,
+> conforming to stampede's real `TargetAdapter` ABC), not in mockworld — mockworld's
+> `control.py` holds only the control plane; (2) the shared trace schema
+> (`agent_reliability_core.trace`) uses **`swarmproof.fault.kind`** (+ `swarmproof.run.seed`),
+> not the `swarmproof.fault.{type,injected,source}` names drafted here. mockworld
+> emits the current names as of 0.3.2. See ROADMAP.md / CHANGELOG.md.
 
 ### 7.1 Shape
 stampede gets a new **`MockworldTarget`** adapter alongside `MCPTarget` / `HTTPTarget` / `EVMTarget`. It implements stampede's Target interface and additionally holds a **control-plane handle** to drive determinism.
@@ -330,7 +343,7 @@ Three things this buys the integration (per stampede architect):
 - `swarmproof.span.side = "target"` (stampede sets `"agent"` on its CLIENT span).
 - Resource: `service.name = "mockworld.<mock>"` (e.g. `mockworld.stripe`), `service.version`. Note: `swarmproof.run.id` is a **span** attribute, not a resource attribute (one collector may see many runs).
 - **Fault attributes (mockworld owns this sub-namespace, ✅ shape confirmed):**
-  `swarmproof.fault.type` (e.g. `"card_declined"`), `swarmproof.fault.injected` (bool), `swarmproof.fault.source` (`"mockworld"`). stampede renders these in the report's "target-native faults" section.
+  `swarmproof.fault.kind` (e.g. `"card_declined"`), present only when a semantic fault was applied (shared schema; superseded the drafted `type/injected/source` triple). stampede renders these in the report's "target-native faults" section.
 
 **Trace-context propagation (mockworld implements the consumer side):**
 - **HTTP/SSE transport:** read standard **W3C `traceparent` / `tracestate` HTTP headers**; set as the parent of the handler span.
@@ -354,9 +367,12 @@ Three things this buys the integration (per stampede architect):
 
 **`rate_limit` deconfliction (✅ agreed):** both layers can express rate-limiting. When a `MockworldTarget` is in use, stampede **suppresses its transport-level `rate_limit`** and defers to mockworld's semantic `rate_limited` (429 + realistic `Retry-After`), gated on target type — so a 429 is never double-counted. For non-mockworld targets, stampede's transport rate_limit stands.
 
-### 7.5 Contract status (✅ confirmed with stampede architect 2026-07-13)
-All open items are resolved; RESEARCH Q1 is closed. Confirmations exchanged:
-1. ✅ **Trace shape** — OTel GenAI profile; mockworld emits `span.kind=SERVER` handler spans parented to stampede's `execute_tool` CLIENT span, joined on `gen_ai.tool.call.id`; `swarmproof.span.side="target"`; fault attrs `swarmproof.fault.{type,injected,source}` (§7.3). mockworld reads `traceparent` from HTTP headers and MCP `_meta`.
+### 7.5 Contract status
+The integration shipped: stampede's `MockworldTarget` drives a mockworld world
+end-to-end (see the stampede repo + `../CHANGELOG.md`). The design points below
+were the plan; two drifted in implementation — trace attrs are `swarmproof.fault.kind`
+(not the drafted triple), and the adapter lives in stampede. The design intent:
+1. ✅ **Trace shape** — OTel GenAI profile; mockworld emits `span.kind=SERVER` handler spans parented to stampede's `execute_tool` CLIENT span, joined on `gen_ai.tool.call.id`; `swarmproof.span.side="target"`; fault attr `swarmproof.fault.kind` (§7.3). mockworld reads `traceparent` from HTTP headers and MCP `_meta`.
 2. ✅ **Target interface** — full protocol (`discover/invoke/reset(seed)/health/isolation/safety_descriptor`) implemented; `isolation()→per_agent`, `safety_descriptor()→{sandboxed:True}` (§7.2).
 3. ✅ **Fault split** — transport=stampede, business=mockworld; `target.faults:` forwarded to `set_faults()`; `rate_limit` deconflicted (above).
 

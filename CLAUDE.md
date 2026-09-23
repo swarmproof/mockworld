@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **mockworld** — "a synthetic internet for agents": deterministic, LLM-free fake services (fake Stripe, Gmail, exchange, CRM, S3) exposed as MCP servers so agents can be built and tested without touching production. Part of the Swarm Proof toolkit; companion to [stampede](https://github.com/swarmproof/stampede) (stampede simulates the *agents*, mockworld simulates the *world* they act on). Apache-2.0.
 
-**Current state: v0.1 + v0.2 implemented** (on feature branches; see git). Python 3.11+, official `mcp` SDK, pydantic v2, click, httpx; packaged with hatchling. Dev loop: `uv venv && uv pip install -e ".[dev]"`, then `python -m pytest -q` (53 tests, ~1s) and `mockworld <cmd>`.
+**Current state: v0.1–v0.3 implemented and released on PyPI as `mockworld-mcp` (0.3.2).** Python 3.11+, official `mcp` SDK, pydantic v2, click, httpx; packaged with hatchling. Dev loop: `uv venv && uv pip install -e ".[dev]"`, then `python -m pytest -q` (94 tests) and `mockworld <cmd>`. Import package and CLI are `mockworld`; only the PyPI/install name is `mockworld-mcp`.
 
 ### Module map (`src/mockworld/`)
-- `determinism.py` — the seeded entropy funnel (clock/ids/rng/fault-dice). The root of all guarantees.
+- `determinism.py` — the seeded entropy funnel (clock/ids/rng/fault-dice); the single source of all seeded entropy.
 - `state.py` — `StateStore` (Memory/SQLite) + copy-on-write `StateView`; session isolation lives here.
 - `session.py` — per-session logical counters. `schema.py` — pydantic `mock.yaml` models. `errors.py` — error library + `Result`.
 - `faults.py` — fault injector (probabilistic + `when:` conditional). `dispatch.py` — CRUD + handler ABI. `handler_ctx.py` — the `ctx` handed to handlers.
@@ -17,9 +17,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `trace.py` — OTel-GenAI-profile spans + NDJSON sink + OTLP/HTTP JSON exporter (`--otlp`). `server.py` — MCP stdio+HTTP adapter, also exposes read-only `mockworld://` resources. `control.py` — control plane + stampede `Target`. `cli.py` — commands. `validate.py` — the entropy linter.
 - `registry.py` (v0.2) — `add`/`search`, checksum + safety gate. `world.py` (v0.2) — compose mocks with a shared identity pool. `record.py` (v0.2) — OpenAPI → scaffold.
 - `snapshot.py` (v0.3) — portable `.mw.json` artifacts + migration. `swarm.py` (v0.3) — persona swarm → Agent Readiness Report (misuse map). `verify.py` (v0.3) — contract-drift vs OpenAPI.
-- `mocks/<name>/` — the five built-ins (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
+- `sandbox.py` + `_sandbox_worker.py` — run untrusted registry handlers in a hardened subprocess. `scaffold.py` — `mockworld new`. `pytest_plugin.py` — the `mockworld` pytest fixture. `datagen.py` — seeded synthetic data.
+- `mocks/<name>/` — the six built-ins: payments, crm, exchange, email, files, hello (`mock.yaml` + `handlers.py` + `seed.py` + `fidelity.md`).
 
-CLI: `run` (stdio/http, also `run world:<file>`), `list`, `inspect`, `validate`, `reset`, `demo`, `add`, `search`, `pack`, `record`. The engine is deliberately MCP-free; server/control/CLI are thin adapters (keeps determinism/isolation tests pure).
+CLI: `run` (stdio/http, also `run world:<file>`), `list`, `inspect`, `validate`, `reset`, `demo`, `new`, `add`, `search`, `pack`, `record`, `swarm`, `verify`, `snapshot`. The engine is deliberately MCP-free; server/control/CLI are thin adapters (keeps determinism/isolation tests pure). The real stampede `MockworldTarget` lives in the stampede repo; `control.py` here holds only the control plane + a lightweight target helper.
 
 ## Document map
 
@@ -39,7 +40,7 @@ Doc conventions: `⊕ Beyond original spec` marks design that extends `SPEC.md`;
 3. **Declarative-first, Python escape hatch** (ADR-5). A mock is a directory: `mock.yaml` (authoritative), optional `handlers.py` (ABI: `handler(ctx, params) -> Result`, pure w.r.t. injected entropy), optional `seed.py`, and `fidelity.md` documenting what it does/doesn't model. Simple CRUD needs no code.
 4. **Fault split with stampede** (ADR-6): mockworld owns *business-logic* faults only (`card_declined`, `insufficient_funds`, `rate_limited`, latency, partial outage) as first-class objects with realistic error bodies. Transport chaos (connection kills, socket timeouts, malformed frames) belongs to stampede/Toxiproxy — never implement it here. When a `MockworldTarget` is in use, stampede suppresses its transport rate_limit in favor of mockworld's semantic 429.
 5. **State store**: `MemoryStore` default, `SQLiteStore` for persistence/snapshots, behind one `StateStore` API (ADR-3) — both must pass a shared conformance suite.
-6. **Consume siblings' primitives, never redefine them.** Tracing uses stampede's trace-format, which is an **OpenTelemetry GenAI profile** — mockworld emits standard `gen_ai.*` attributes plus the shared `swarmproof.*` extension (`swarmproof.span.side="target"`, `swarmproof.fault.{type,injected,source}`). No `mockworld.*` namespace. Target spans are `span.kind=SERVER`, parented to stampede's `execute_tool` CLIENT span, joined on echoed `gen_ai.tool.call.id`; `traceparent` is read from HTTP headers or MCP `_meta.traceparent` on stdio.
+6. **Consume siblings' primitives, never redefine them.** Tracing uses stampede's trace-format, which is an **OpenTelemetry GenAI profile** — mockworld emits standard `gen_ai.*` attributes plus the shared `swarmproof.*` extension (`swarmproof.span.side="target"`, `swarmproof.run.seed`, and `swarmproof.fault.kind` when a fault is applied). No `mockworld.*` namespace. Target spans are `span.kind=SERVER`, parented to stampede's `execute_tool` CLIENT span, joined on echoed `gen_ai.tool.call.id`; `traceparent` is read from HTTP headers or MCP `_meta.traceparent` on stdio.
 
 ### The stampede contract (confirmed 2026-07-13, ARCHITECTURE §7)
 

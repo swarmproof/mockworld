@@ -3,6 +3,10 @@
 *Milestones, work breakdown, mock prioritization, sequencing, effort, definition-of-done, launch checklist.*
 *Companion to `PRD.md` / `ARCHITECTURE.md`. Author: mockworld architect. Last updated: 2026-07-13.*
 
+> **Status:** original delivery plan. v0.1–v0.3 are shipped and released as
+> `mockworld-mcp`; deep stampede integration is the one open item. The launch
+> checklist below is historical. See `../ROADMAP.md` and `../CHANGELOG.md`.
+
 > REQ-IDs reference `docs/PRD.md`. Effort sizing: **XS**≈½day · **S**≈1–2d · **M**≈3–5d · **L**≈1–2wk (solo, alongside Xerberus).
 > Portfolio context: mockworld is Phase E (Q2), built *after* stampede v0.1 so it can be seeded with exactly the mocks stampede's demos need.
 
@@ -159,7 +163,7 @@
 - ≥ the minimum tool set (§3); agent-grade tool descriptions; stateful invariants enforced (e.g. refund ≤ captured); ≥3 signature faults declared + seed-reproducible; `fidelity.md` present; e2e scenario from TEST-PLAN passes; runs one-command over stdio + HTTP.
 
 ### 6.3 Per milestone
-- **v0.1:** all P0 REQs met; 5 mocks pass acceptance; README GIF (agent charges fake card → seeded decline); `pip install mockworld` clean; determinism + isolation NFRs verified (byte-identical replay; 50 parallel sessions no cross-talk); trace emission consumed by a stampede run.
+- **v0.1:** all P0 REQs met; 5 mocks pass acceptance; README GIF (agent charges fake card → seeded decline); `pip install mockworld-mcp` clean; determinism + isolation NFRs verified (byte-identical replay; 50 parallel sessions no cross-talk); trace emission consumed by a stampede run.
 - **v0.2:** registry live with ≥1 external community mock added via PR; record-mode scaffolds a mock from an OpenAPI spec; a composed world runs.
 - **v0.3:** a stampede run targets a mockworld world end-to-end with deterministic reset and nested traces in the Agent Readiness Report; a scenario snapshot reproduces a bug across machines.
 

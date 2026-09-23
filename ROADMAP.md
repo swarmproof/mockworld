@@ -1,7 +1,7 @@
 # mockworld — Roadmap
 
-Released on PyPI as [`mockworld-mcp`](https://pypi.org/project/mockworld-mcp/)
-(0.3.1). See [`CHANGELOG.md`](./CHANGELOG.md) for the full history.
+Released on PyPI as [`mockworld-mcp`](https://pypi.org/project/mockworld-mcp/).
+See [`CHANGELOG.md`](./CHANGELOG.md) for versions and the full history.
 
 ## v0.1 ✅ — engine + built-in mocks
 
