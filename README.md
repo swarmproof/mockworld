@@ -18,7 +18,7 @@ pip install mockworld-mcp
 mockworld run mock:payments      # a stateful fake Stripe as an MCP server
 ```
 
-> **Status:** released — `mockworld-mcp` on PyPI. Deterministic engine, 6 built-in mocks, MCP stdio + HTTP, fault injection, control plane, registry, world composition, record-mode, snapshots, and a stampede `Target`. Companion to [stampede](https://github.com/swarmproof/stampede).
+> **Status:** released — `mockworld-mcp` on PyPI. Deterministic engine, 6 built-in mocks (5 services + a `hello` example), MCP stdio + HTTP, fault injection, control plane, registry, world composition, record-mode, snapshots, and a stampede `Target`. Companion to [stampede](https://github.com/swarmproof/stampede).
 
 ---
 
@@ -127,8 +127,9 @@ mockworld swarm mock:crm --agents 200 --goal hide --seed 42
 mockworld swarm mock:crm --agents 200 --seed 42 --descriptions ambiguous
 #   ⚠ 45.5% — same swarm, vaguer tool descriptions.
 
-# Save a dirtied world as a portable artifact; reload it anywhere to reproduce a bug:
+# Save a dirtied world as a portable artifact, then boot a server from it to reproduce a bug:
 mockworld snapshot save mock:payments bug123.mw.json --seed 7
+mockworld run mock:payments --snapshot bug123.mw.json
 
 # Govern fidelity drift against a real provider's OpenAPI contract:
 mockworld verify mock:payments --against ./stripe-openapi.yaml
@@ -166,7 +167,7 @@ mockworld/
 │   ├── verify.py            # contract-drift check vs OpenAPI
 │   ├── cli.py               # the mockworld command
 │   └── mocks/               # payments · crm · exchange · email · files · hello
-├── tests/                   # 86 tests mapping to the TEST-PLAN gates
+├── tests/                   # 94 tests mapping to the TEST-PLAN gates
 ├── docs/                    # ARCHITECTURE · PRD · AUTHORING · RELEASING · TEST-PLAN · …
 ├── examples/                # worlds/ · demos/ · registry/
 └── .github/workflows/       # ci.yml · release.yml

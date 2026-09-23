@@ -3,6 +3,9 @@
 *Strategy & pyramid, concrete e2e scenarios, determinism/reset testing, fault-injection tests, CI gates, acceptance criteria.*
 *Companion to `PRD.md` / `ARCHITECTURE.md`. Author: mockworld architect. Last updated: 2026-07-13.*
 
+> **Status:** original test plan; the suite is implemented (94 tests) and released
+> as `mockworld-mcp`. See `../ROADMAP.md` and `../CHANGELOG.md` for current state.
+
 > REQ-IDs reference `docs/PRD.md`. Scenarios are `Given/When/Then`.
 
 ---
@@ -175,7 +178,7 @@ Then the exact world state (seed + versions + overlays) is reconstructed
 | INT-1 | MCP `initialize` + `tools/list` over stdio | MCP-2 | Tools advertised with descriptions |
 | INT-2 | Same over Streamable HTTP incl. `Mcp-Session-Id` | MCP-2,3 | Session assigned + honored |
 | INT-3 | Control API reset/seed/faults/snapshot | CTL-1 | All operations effective + isolated from MCP surface (CTL-2) |
-| INT-4 | Trace span per tool call (OTel GenAI profile) | OBS-1 | `span.kind=SERVER`; `gen_ai.tool.name/call.id` set; `swarmproof.span.side=target`; `swarmproof.fault.*` present on faulted calls; no `gen_ai.usage.*` |
+| INT-4 | Trace span per tool call (OTel GenAI profile) | OBS-1 | `span.kind=SERVER`; `gen_ai.tool.name/call.id` set; `swarmproof.span.side=target`; `swarmproof.run.seed` set; `swarmproof.fault.kind` present on faulted calls and absent otherwise; no `gen_ai.usage.*` |
 | INT-5 | Trace nesting + context propagation | OBS-2, STAMP-3 | target span is child of stampede's `execute_tool` CLIENT span (same `trace_id`), joined on echoed `gen_ai.tool.call.id`; `traceparent` read from HTTP headers AND MCP `_meta` |
 | INT-5b | Target protocol conformance | STAMP-1 | `reset(seed)` pure-function replay; `isolation()`→`per_agent`; `safety_descriptor()`→`{sandboxed:True}`; `health()` ok |
 | INT-6 | `mockworld validate` catches bad mocks | DEF-6 | Rejects entropy leaks, bad handler sig, weak descriptions |

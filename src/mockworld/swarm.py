@@ -2,7 +2,7 @@
 
 A deterministic stand-in for a stampede swarm: many scripted-persona "agents",
 each in its own isolated session, drive a mock/world toward a goal. The output is
-the signature artifact — a **misuse map** ("34% called delete_record when they
+the signature artifact — a **misuse map** ("~33% called delete_record when they
 meant archive") plus a fault-resilience summary — reproducible under a seed.
 
 This exercises mockworld's side of the stampede contract (per-agent isolation,

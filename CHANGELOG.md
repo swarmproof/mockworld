@@ -3,6 +3,18 @@
 All notable changes to mockworld are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow SemVer.
 
+## [0.3.3] — 2026-09-23
+
+### Added
+- `mockworld run --snapshot <file>` boots a server with a saved `.mw.json` snapshot
+  restored, so a shared scenario reproduces a bug directly.
+
+### Changed
+- Docs reconciled with the shipped state: trace attributes documented as
+  `swarmproof.fault.kind` (+ `swarmproof.run.seed`) across all docs; corrected test
+  count, versions, and the stampede-integration status; status banners added to the
+  remaining design docs.
+
 ## [0.3.2] — 2026-09-16
 
 ### Changed
@@ -80,7 +92,7 @@ Distribution renamed to **`mockworld-mcp`** on PyPI (`import mockworld` and the
 ## [0.1.0] — 2026-09-01
 
 First public release — the deterministic, LLM-free MCP mock engine plus the full
-v0.1–v0.4 feature surface.
+v0.1–v0.3 feature surface.
 
 ### Engine
 - Seeded `DeterministicContext` (clock/ids/rng/fault-dice on independent
@@ -116,4 +128,4 @@ v0.1–v0.4 feature surface.
 
 ### Fixed
 - Wheel build no longer double-includes built-in mock data (removed a redundant
-  `force-include`); `pip install mockworld` now ships the mocks correctly.
+  `force-include`); `pip install mockworld-mcp` now ships the mocks correctly.
